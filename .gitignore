@@ -19,3 +19,13 @@ buildNumber.properties
 .idea
 
 .env
+
+*/**/__pycache__
+**/__pycache__/
+*.py[cod]
+*$py.class
+
+# 其他常见忽略项
+.idea/
+.vscode/
+.DS_Store
