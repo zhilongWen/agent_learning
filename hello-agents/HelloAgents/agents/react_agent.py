@@ -9,32 +9,32 @@ from core.message import Message
 from tools.registry import ToolRegistry
 
 # 默认ReAct提示词模板
-DEFAULT_REACT_PROMPT = """\
-你是一个有能力调用外部工具的 ReAct 智能体，必须严格按下面的格式输出。
+DEFAULT_REACT_PROMPT = """你是一个具备推理和行动能力的AI助手。你可以通过思考分析问题，然后调用合适的工具来获取信息，最终给出准确的答案。
 
-可用工具:
+## 可用工具
 {tools}
 
-每一步只能输出两行，且都必须出现：
-Thought: <你这一轮的思考>
-Action: <下面两种格式之一>
-  - 调用工具: <tool_name>[<tool_input>]
-  - 输出最终答案: Finish[<最终答案>]
+## 工作流程
+请严格按照以下格式进行回应，每次只能执行一个步骤：
 
-强制约束:
-1. 即便不需要调用工具，也必须输出一行 Action: Finish[<答案>] 来结束。
-2. Action 必须使用方括号包裹参数，不要使用中文括号、空格或省略方括号。
-3. 不要输出多余的解释或代码块标记。
+**Thought:** 分析当前问题，思考需要什么信息或采取什么行动。
+**Action:** 选择一个行动，格式必须是以下之一：
+- `{{tool_name}}[{{tool_input}}]` - 调用指定工具
+- `Finish[最终答案]` - 当你有足够信息给出最终答案时
 
-示例:
-Thought: 这是一道简单算术题，可以直接计算。
-Action: Finish[32]
+## 重要提醒
+1. 每次回应必须包含Thought和Action两部分
+2. 工具调用的格式必须严格遵循：工具名[参数]
+3. 只有当你确信有足够信息回答问题时，才使用Finish
+4. 如果工具返回的信息不够，继续使用其他工具或相同工具的不同参数
 
-现在开始解决问题。
-Question: {question}
-History:
+## 当前任务
+**Question:** {question}
+
+## 执行历史
 {history}
-"""
+
+现在开始你的推理和行动："""
 
 
 class ReActAgent(Agent):
