@@ -1,6 +1,7 @@
 """Plan and Solve Agent实现 - 分解规划与逐步执行的智能体"""
 
 import ast
+import re
 from typing import Optional, List, Dict, Any
 from core.agent import Agent
 from core.llm import HelloAgentsLLM
@@ -68,18 +69,36 @@ class Planner:
         response_text = self.llm_client.invoke(messages, **kwargs) or ""
         print(f"✅ 计划已生成:\n{response_text}")
 
-        try:
-            # 提取Python代码块中的列表
-            plan_str = response_text.split("```python")[1].split("```")[0].strip()
-            plan = ast.literal_eval(plan_str)
-            return plan if isinstance(plan, list) else []
-        except (ValueError, SyntaxError, IndexError) as e:
-            print(f"❌ 解析计划时出错: {e}")
-            print(f"原始响应: {response_text}")
-            return []
-        except Exception as e:
-            print(f"❌ 解析计划时发生未知错误: {e}")
-            return []
+        plan = self._extract_plan(response_text)
+        if not plan:
+            print(f"❌ 解析计划失败，原始响应:\n{response_text}")
+        return plan
+
+    @staticmethod
+    def _extract_plan(text: str) -> List[str]:
+        """容错解析：支持 ```python 栅栏 / 任意 ``` 栅栏 / 裸 Python 列表"""
+        candidates: List[str] = []
+
+        # 1) ```python ... ``` 或 ``` ... ```
+        for m in re.finditer(r"```(?:python)?\s*(.*?)```", text, re.DOTALL | re.IGNORECASE):
+            candidates.append(m.group(1).strip())
+
+        # 2) 裸列表（首个 [ 到对应的 ]）
+        bracket = re.search(r"\[.*\]", text, re.DOTALL)
+        if bracket:
+            candidates.append(bracket.group(0).strip())
+
+        # 3) 整段兜底
+        candidates.append(text.strip())
+
+        for raw in candidates:
+            try:
+                parsed = ast.literal_eval(raw)
+            except (ValueError, SyntaxError):
+                continue
+            if isinstance(parsed, list) and all(isinstance(x, str) for x in parsed):
+                return parsed
+        return []
 
 
 class Executor:
