@@ -2,6 +2,8 @@
 from tools.async_executor import AsyncToolExecutor, run_parallel_tools, run_batch_tool, run_parallel_tools_sync, \
     run_batch_tool_sync
 from tools.base import Tool, ToolParameter
+from tools.builtin.memory_tool import MemoryTool
+from tools.builtin.rag_tool import RAGTool
 from tools.chain import ToolChain, ToolChainManager, create_research_chain, create_simple_chain
 from tools.registry import ToolRegistry, global_registry
 
@@ -20,6 +22,8 @@ __all__ = [
     # 内置工具
     "SearchTool",
     "CalculatorTool",
+    "MemoryTool",
+    "RAGTool",
 
     # 工具链功能
     "ToolChain",
