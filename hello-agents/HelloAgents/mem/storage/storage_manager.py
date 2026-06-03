@@ -10,7 +10,9 @@ from typing import Dict, Any, List, Union
 from enum import Enum
 import logging
 
-from mem.storage import ChromaVectorStore, FAISSVectorStore, NetworkXGraphStore, SQLiteDocumentStore
+from mem.storage.vector_store import ChromaVectorStore, FAISSVectorStore
+from mem.storage.graph_store import NetworkXGraphStore
+from mem.storage.document_store import SQLiteDocumentStore
 
 
 class StorageType(Enum):

@@ -6,7 +6,8 @@ import uuid
 import logging
 
 from mem.base import MemoryConfig, MemoryItem
-from mem.core import MemoryStore, MemoryRetriever
+from mem.core.store import MemoryStore
+from mem.core.retriever import MemoryRetriever
 from mem.types import WorkingMemory, EpisodicMemory, SemanticMemory, PerceptualMemory
 
 logger = logging.getLogger(__name__)
