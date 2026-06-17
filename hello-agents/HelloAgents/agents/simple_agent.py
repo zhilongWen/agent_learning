@@ -187,6 +187,7 @@ class SimpleAgent(Agent):
             response = self.llm.invoke(messages, **kwargs)
             self.add_message(Message(input_text, "user"))
             self.add_message(Message(response, "assistant"))
+            self._auto_record_memory(input_text, response)
             return response
 
         # 迭代处理，支持多轮工具调用
@@ -233,8 +234,24 @@ class SimpleAgent(Agent):
         # 保存到历史记录
         self.add_message(Message(input_text, "user"))
         self.add_message(Message(final_response, "assistant"))
+        self._auto_record_memory(input_text, final_response)
 
         return final_response
+
+    def _auto_record_memory(self, user_input: str, agent_response: str) -> None:
+        """如果注册了记忆工具，自动记录完整对话。"""
+        if not self.tool_registry:
+            return
+
+        memory_tool = self.tool_registry.get_tool("memory")
+        if not memory_tool or not hasattr(memory_tool, "auto_record_conversation"):
+            return
+
+        try:
+            memory_tool.auto_record_conversation(user_input, agent_response)
+        except Exception:
+            # 记忆写入失败不应影响Agent的主要回答流程。
+            pass
 
     def add_tool(self, tool) -> None:
         """添加工具到Agent（便利方法）"""
@@ -292,3 +309,4 @@ class SimpleAgent(Agent):
         # 保存完整对话到历史记录
         self.add_message(Message(input_text, "user"))
         self.add_message(Message(full_response, "assistant"))
+        self._auto_record_memory(input_text, full_response)

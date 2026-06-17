@@ -6,8 +6,6 @@ import uuid
 import logging
 
 from mem.base import MemoryConfig, MemoryItem
-from mem.core.store import MemoryStore
-from mem.core.retriever import MemoryRetriever
 from mem.types import WorkingMemory, EpisodicMemory, SemanticMemory, PerceptualMemory
 
 logger = logging.getLogger(__name__)
@@ -35,24 +33,22 @@ class MemoryManager:
         self.config = config or MemoryConfig()
         self.user_id = user_id
 
-        # 初始化存储和检索组件
-        self.store = MemoryStore(self.config)
-        self.retriever = MemoryRetriever(self.store, self.config)
+        # 存储和检索功能已移至各记忆类型内部实现
 
         # 初始化各类型记忆
         self.memory_types = {}
 
         if enable_working:
-            self.memory_types['working'] = WorkingMemory(self.config, self.store)
+            self.memory_types['working'] = WorkingMemory(self.config)
 
         if enable_episodic:
-            self.memory_types['episodic'] = EpisodicMemory(self.config, self.store)
+            self.memory_types['episodic'] = EpisodicMemory(self.config)
 
         if enable_semantic:
-            self.memory_types['semantic'] = SemanticMemory(self.config, self.store)
+            self.memory_types['semantic'] = SemanticMemory(self.config)
 
         if enable_perceptual:
-            self.memory_types['perceptual'] = PerceptualMemory(self.config, self.store)
+            self.memory_types['perceptual'] = PerceptualMemory(self.config)
 
         logger.info(f"MemoryManager初始化完成，启用记忆类型: {list(self.memory_types.keys())}")
 

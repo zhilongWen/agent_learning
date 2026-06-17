@@ -8,9 +8,7 @@
 """
 
 # Memory Core Layer (记忆核心层)
-from mem.core.manager import MemoryManager
-from mem.core.store import MemoryStore
-from mem.core.retriever import MemoryRetriever
+from mem.manager import MemoryManager
 
 # Memory Types Layer (记忆类型层)
 from mem.types.working import WorkingMemory
@@ -19,10 +17,7 @@ from mem.types.semantic import SemanticMemory
 from mem.types.perceptual import PerceptualMemory
 
 # Storage Layer (存储层)
-from mem.storage.vector_store import VectorStore, ChromaVectorStore, FAISSVectorStore
-from mem.storage.graph_store import GraphStore, NetworkXGraphStore
 from mem.storage.document_store import DocumentStore, SQLiteDocumentStore
-from mem.storage.storage_manager import UnifiedStorageManager, create_storage_manager
 
 # Base classes and utilities
 from mem.base import MemoryItem, MemoryConfig, BaseMemory
@@ -30,8 +25,6 @@ from mem.base import MemoryItem, MemoryConfig, BaseMemory
 __all__ = [
     # Core Layer
     "MemoryManager",
-    "MemoryStore",
-    "MemoryRetriever",
 
     # Memory Types
     "WorkingMemory",
@@ -40,15 +33,8 @@ __all__ = [
     "PerceptualMemory",
 
     # Storage Layer
-    "VectorStore",
-    "ChromaVectorStore",
-    "FAISSVectorStore",
-    "GraphStore",
-    "NetworkXGraphStore",
     "DocumentStore",
     "SQLiteDocumentStore",
-    "UnifiedStorageManager",
-    "create_storage_manager",
 
     # Base
     "MemoryItem",

@@ -7,10 +7,10 @@
 - PerceptualMemory: 感知记忆 - 多模态数据存储
 """
 
-from .working import WorkingMemory
-from .episodic import EpisodicMemory, Episode
-from .semantic import SemanticMemory, Concept, ConceptRelation
-from .perceptual import PerceptualMemory, Perception
+from mem.types.working import WorkingMemory
+from mem.types.episodic import EpisodicMemory, Episode
+from mem.types.semantic import SemanticMemory, Relation, Entity
+from mem.types.perceptual import PerceptualMemory, Perception
 
 __all__ = [
     # 记忆类型
@@ -21,7 +21,7 @@ __all__ = [
 
     # 辅助类
     "Episode",
-    "Concept",
-    "ConceptRelation",
+    "Entity",
+    "Relation",
     "Perception"
 ]

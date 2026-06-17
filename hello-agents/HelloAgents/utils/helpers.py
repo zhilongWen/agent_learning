@@ -2,7 +2,7 @@
 
 import importlib
 from datetime import datetime
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, Optional
 from pathlib import Path
 
 
