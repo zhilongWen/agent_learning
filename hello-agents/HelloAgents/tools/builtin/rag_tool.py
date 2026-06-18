@@ -28,6 +28,12 @@ from mem.rag.pipeline import create_rag_pipeline
 from tools import Tool, ToolParameter
 
 
+AVAILABLE_ACTIONS = [
+    "add_document", "add_text", "ask", "search", "get_context",
+    "update_document", "remove_document", "stats", "clear"
+]
+
+
 class RAGTool(Tool):
     """RAG工具
     
@@ -133,7 +139,7 @@ class RAGTool(Tool):
             ToolParameter(
                 name="action",
                 type="string",
-                description="操作类型：add_document(添加文档), add_text(添加文本), ask(智能问答), search(搜索), stats(统计), clear(清空)",
+                description="操作类型：add_document(添加文档), add_text(添加文本), ask(智能问答), search(搜索), get_context(获取上下文), update_document(更新文档), remove_document(删除文档), stats(统计), clear(清空)",
                 required=True
             ),
 
@@ -159,7 +165,13 @@ class RAGTool(Tool):
             ToolParameter(
                 name="query",
                 type="string",
-                description="搜索查询词（用于基础搜索）",
+                description="搜索查询词（用于搜索或获取上下文）",
+                required=False
+            ),
+            ToolParameter(
+                name="document_id",
+                type="string",
+                description="文档ID（用于添加文本、更新文档、删除文档）",
                 required=False
             ),
 
@@ -184,6 +196,13 @@ class RAGTool(Tool):
                 description="是否包含引用来源（默认：true）",
                 required=False,
                 default=True
+            ),
+            ToolParameter(
+                name="max_chars",
+                type="integer",
+                description="上下文最大字符数（默认：1200）",
+                required=False,
+                default=1200
             )
         ]
 
@@ -211,13 +230,18 @@ class RAGTool(Tool):
                 return self._ask(**kwargs)
             elif action == "search":
                 return self._search(**kwargs)
+            elif action == "get_context":
+                return self._get_context(**kwargs)
+            elif action == "update_document":
+                return self._update_document(**kwargs)
+            elif action == "remove_document":
+                return self._remove_document(**kwargs)
             elif action == "stats":
                 return self._get_stats(namespace=kwargs.get("namespace"))
             elif action == "clear":
                 return self._clear_knowledge_base(**kwargs)
             else:
-                available_actions = ["add_document", "add_text", "ask", "search", "stats", "clear"]
-                return f"❌ 不支持的操作: {action}\n✅ 可用操作: {', '.join(available_actions)}"
+                return f"❌ 不支持的操作: {action}\n✅ 可用操作: {', '.join(AVAILABLE_ACTIONS)}"
 
         except Exception as e:
             return f"❌ 执行操作 '{action}' 时发生错误: {str(e)}"
@@ -226,7 +250,7 @@ class RAGTool(Tool):
         """预处理参数，设置默认值和验证"""
         # 设置默认值
         defaults = {
-            "namespace": "default",
+            "namespace": self.rag_namespace,
             "limit": 5,
             "include_citations": True,
             "enable_advanced_search": True,
@@ -249,10 +273,20 @@ class RAGTool(Tool):
             raise ValueError("ask 操作需要提供 question 或 query 参数")
         elif action in ["search"] and not (kwargs.get("query") or kwargs.get("question")):
             raise ValueError("search 操作需要提供 query 或 question 参数")
+        elif action in ["get_context"] and not (kwargs.get("query") or kwargs.get("question")):
+            raise ValueError("get_context 操作需要提供 query 或 question 参数")
+        elif action in ["update_document"]:
+            if not kwargs.get("document_id"):
+                raise ValueError("update_document 操作需要提供 document_id 参数")
+            if not (kwargs.get("text") or kwargs.get("file_path")):
+                raise ValueError("update_document 操作需要提供 text 或 file_path 参数")
+        elif action in ["remove_document"] and not (kwargs.get("document_id") or kwargs.get("file_path")):
+            raise ValueError("remove_document 操作需要提供 document_id 或 file_path 参数")
 
         return kwargs
 
-    def _add_document(self, file_path: str, document_id: str = None, namespace: Optional[str] = None,
+    def _add_document(self, file_path: str, document_id: str = None, metadata: Optional[Dict[str, Any]] = None,
+                      namespace: Optional[str] = None,
                       chunk_size: int = 800, chunk_overlap: int = 100, **kwargs) -> str:
         """添加文档到知识库（支持多格式）"""
         try:
@@ -261,11 +295,15 @@ class RAGTool(Tool):
 
             pipeline = self._get_pipeline(namespace)
             t0 = time.time()
+            chunk_metadata = dict(metadata or {})
+            if document_id:
+                chunk_metadata["document_id"] = document_id
 
             chunks_added = pipeline["add_documents"](
                 file_paths=[file_path],
                 chunk_size=chunk_size,
-                chunk_overlap=chunk_overlap
+                chunk_overlap=chunk_overlap,
+                metadata=chunk_metadata or None
             )
 
             t1 = time.time()
@@ -274,8 +312,9 @@ class RAGTool(Tool):
             if chunks_added == 0:
                 return f"⚠️ 未能从文件解析内容: {os.path.basename(file_path)}"
 
+            display_name = document_id or os.path.basename(file_path)
             return (
-                f"✅ 文档已添加到知识库: {os.path.basename(file_path)}\n"
+                f"✅ 文档已添加到知识库: {display_name}\n"
                 f"📊 分块数量: {chunks_added}\n"
                 f"⏱️ 处理时间: {process_ms}ms\n"
                 f"📝 命名空间: {pipeline.get('namespace', self.rag_namespace)}"
@@ -301,11 +340,15 @@ class RAGTool(Tool):
 
                 pipeline = self._get_pipeline(namespace)
                 t0 = time.time()
+                chunk_metadata = dict(metadata or {})
+                chunk_metadata["document_id"] = document_id
+                chunk_metadata["source_kind"] = "text"
 
                 chunks_added = pipeline["add_documents"](
                     file_paths=[tmp_path],
                     chunk_size=chunk_size,
-                    chunk_overlap=chunk_overlap
+                    chunk_overlap=chunk_overlap,
+                    metadata=chunk_metadata
                 )
 
                 t1 = time.time()
@@ -332,12 +375,14 @@ class RAGTool(Tool):
         except Exception as e:
             return f"❌ 添加文本失败: {str(e)}"
 
-    def _search(self, query: str, limit: int = 5, min_score: float = 0.1, enable_advanced_search: bool = True,
+    def _search(self, query: Optional[str] = None, question: Optional[str] = None,
+                limit: int = 5, min_score: float = 0.1, enable_advanced_search: bool = True,
                 max_chars: int = 1200, include_citations: bool = True, namespace: Optional[str] = None,
                 **kwargs) -> str:
         """搜索知识库"""
         try:
-            if not query or not query.strip():
+            query = (query or question or "").strip()
+            if not query:
                 return "❌ 搜索查询不能为空"
 
             # 使用统一 RAG 管道搜索
@@ -390,6 +435,168 @@ class RAGTool(Tool):
 
         except Exception as e:
             return f"❌ 搜索失败: {str(e)}"
+
+    def _get_context(self, query: Optional[str] = None, question: Optional[str] = None, limit: int = 3,
+                     max_chars: int = 1200, namespace: Optional[str] = None, **kwargs) -> str:
+        """获取可直接注入提示词的相关上下文。"""
+        try:
+            query_text = (query or question or "").strip()
+            if not query_text:
+                return "❌ 上下文查询不能为空"
+
+            context = self.get_relevant_context(
+                query=query_text,
+                limit=limit,
+                max_chars=max_chars,
+                namespace=namespace
+            )
+
+            if not context:
+                return f"🔍 未找到与 '{query_text}' 相关的上下文"
+            if context.startswith("获取上下文失败"):
+                return f"❌ {context}"
+
+            pipeline = self._get_pipeline(namespace)
+            return (
+                f"📚 **相关上下文**\n"
+                f"🔎 查询: {query_text}\n"
+                f"📝 命名空间: {pipeline.get('namespace', self.rag_namespace)}\n\n"
+                f"{context}"
+            )
+
+        except Exception as e:
+            return f"❌ 获取上下文失败: {str(e)}"
+
+    def _update_document(self, document_id: str, text: Optional[str] = None, file_path: Optional[str] = None,
+                         namespace: Optional[str] = None, chunk_size: int = 800, chunk_overlap: int = 100,
+                         metadata: Optional[Dict[str, Any]] = None, **kwargs) -> str:
+        """更新文档：先清理旧分块，再写入新版本。"""
+        try:
+            document_id = (document_id or "").strip()
+            if not document_id:
+                return "❌ 文档ID不能为空"
+            if file_path:
+                if not os.path.exists(file_path):
+                    return f"❌ 文件不存在: {file_path}"
+            elif not text or not text.strip():
+                return "❌ 更新文档需要提供 text 或 file_path"
+
+            pipeline = self._get_pipeline(namespace)
+            namespace_id = pipeline.get("namespace", namespace or self.rag_namespace)
+            cleanup_rules = self._delete_document_chunks(
+                document_id=document_id,
+                file_path=file_path,
+                namespace=namespace_id
+            )
+
+            if file_path:
+                add_result = self._add_document(
+                    file_path=file_path,
+                    document_id=document_id,
+                    metadata=metadata,
+                    namespace=namespace_id,
+                    chunk_size=chunk_size,
+                    chunk_overlap=chunk_overlap
+                )
+            else:
+                add_result = self._add_text(
+                    text=text,
+                    document_id=document_id,
+                    metadata=metadata,
+                    namespace=namespace_id,
+                    chunk_size=chunk_size,
+                    chunk_overlap=chunk_overlap
+                )
+
+            if "✅" not in add_result:
+                return (
+                    f"⚠️ 文档旧版本清理请求已提交，但新版本写入失败: {document_id}\n"
+                    f"🧹 清理规则: {cleanup_rules}\n"
+                    f"{add_result}"
+                )
+
+            return (
+                f"✅ 文档已更新: {document_id}\n"
+                f"🧹 旧版本清理规则: {cleanup_rules}\n"
+                f"{add_result}"
+            )
+
+        except Exception as e:
+            return f"❌ 更新文档失败: {str(e)}"
+
+    def _remove_document(self, document_id: Optional[str] = None, file_path: Optional[str] = None,
+                         namespace: Optional[str] = None, **kwargs) -> str:
+        """从向量知识库删除文档分块，不删除用户本地源文件。"""
+        try:
+            document_id = document_id.strip() if isinstance(document_id, str) else document_id
+            file_path = file_path.strip() if isinstance(file_path, str) else file_path
+            if not (document_id or file_path):
+                return "❌ 删除文档需要提供 document_id 或 file_path"
+
+            pipeline = self._get_pipeline(namespace)
+            namespace_id = pipeline.get("namespace", namespace or self.rag_namespace)
+            cleanup_rules = self._delete_document_chunks(
+                document_id=document_id,
+                file_path=file_path,
+                namespace=namespace_id
+            )
+
+            if cleanup_rules <= 0:
+                return "❌ 删除文档失败：未能构造有效删除条件"
+
+            label = document_id or file_path
+            return (
+                f"✅ 文档删除请求已提交: {label}\n"
+                f"🧹 清理规则: {cleanup_rules}\n"
+                f"📝 命名空间: {namespace_id}"
+            )
+
+        except Exception as e:
+            return f"❌ 删除文档失败: {str(e)}"
+
+    def _delete_document_chunks(self, document_id: Optional[str] = None, file_path: Optional[str] = None,
+                                namespace: Optional[str] = None) -> int:
+        """按文档标识清理RAG分块，返回提交的删除规则数量。"""
+        pipeline = self._get_pipeline(namespace)
+        store = pipeline.get("store")
+        if not store or not hasattr(store, "delete_by_filter"):
+            raise RuntimeError("当前向量存储不支持按条件删除")
+
+        namespace_id = pipeline.get("namespace", namespace or self.rag_namespace)
+        base_filter = {
+            "memory_type": "rag_chunk",
+            "is_rag_data": True,
+            "data_source": "rag_pipeline",
+            "rag_namespace": namespace_id
+        }
+
+        rules: List[Dict[str, Any]] = []
+
+        def add_rule(field: str, value: Optional[str]) -> None:
+            if value is None or value == "":
+                return
+            rule = base_filter.copy()
+            rule[field] = value
+            if rule not in rules:
+                rules.append(rule)
+
+        if document_id:
+            add_rule("document_id", document_id)
+            add_rule("doc_id", document_id)
+            text_path = os.path.join(self.knowledge_base_path, f"{document_id}.md")
+            add_rule("source_path", text_path)
+            add_rule("source_path", os.path.abspath(text_path))
+
+        if file_path:
+            add_rule("source_path", file_path)
+            add_rule("source_path", os.path.abspath(file_path))
+            add_rule("document_id", os.path.splitext(os.path.basename(file_path))[0])
+
+        submitted = 0
+        for rule in rules:
+            if store.delete_by_filter(rule):
+                submitted += 1
+        return submitted
 
     def _ask(self, question: Optional[str] = None, query: Optional[str] = None, limit: int = 5,
              enable_advanced_search: bool = True, include_citations: bool = True, max_chars: int = 1200,

@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 class QdrantConnectionManager:
     """Qdrant连接管理器 - 防止重复连接和初始化"""
-    _instances = {}  # key: (url, collection_name) -> QdrantVectorStore instance
+    _instances = {}  # key: (url, collection_name, vector_size) -> QdrantVectorStore instance
     _lock = threading.Lock()
 
     @classmethod
@@ -45,7 +45,7 @@ class QdrantConnectionManager:
     ) -> 'QdrantVectorStore':
         """获取或创建Qdrant实例（单例模式）"""
         # 创建唯一键
-        key = (url or "local", collection_name)
+        key = (url or "local", collection_name, int(vector_size))
 
         if key not in cls._instances:
             with cls._lock:
@@ -180,38 +180,91 @@ class QdrantVectorStore:
             collections = self.client.get_collections().collections
             collection_names = [c.name for c in collections]
 
+            if self.collection_name in collection_names:
+                self._ensure_collection_dimension(collection_names)
+
             if self.collection_name not in collection_names:
-                # 创建新集合
-                hnsw_cfg = None
-                try:
-                    hnsw_cfg = models.HnswConfigDiff(m=self.hnsw_m, ef_construct=self.hnsw_ef_construct)
-                except Exception:
-                    hnsw_cfg = None
-                self.client.create_collection(
-                    collection_name=self.collection_name,
-                    vectors_config=VectorParams(
-                        size=self.vector_size,
-                        distance=self.distance
-                    ),
-                    hnsw_config=hnsw_cfg
-                )
-                logger.info(f"✅ 创建Qdrant集合: {self.collection_name}")
+                self._create_collection(self.collection_name)
             else:
                 logger.info(f"✅ 使用现有Qdrant集合: {self.collection_name}")
-                # 尝试更新 HNSW 配置
-                try:
-                    self.client.update_collection(
-                        collection_name=self.collection_name,
-                        hnsw_config=models.HnswConfigDiff(m=self.hnsw_m, ef_construct=self.hnsw_ef_construct)
-                    )
-                except Exception as ie:
-                    logger.debug(f"跳过更新HNSW配置: {ie}")
+                self._update_hnsw_config()
             # 确保必要的payload索引
             self._ensure_payload_indexes()
 
         except Exception as e:
             logger.error(f"❌ 集合初始化失败: {e}")
             raise
+
+    def _ensure_collection_dimension(self, collection_names: List[str]) -> None:
+        """现有集合维度不匹配时，自动切换到按维度隔离的集合。"""
+        actual_size = self._get_remote_vector_size(self.collection_name)
+        if actual_size is None or actual_size == self.vector_size:
+            return
+
+        original_name = self.collection_name
+        dimensioned_name = f"{original_name}_dim{self.vector_size}"
+        logger.warning(
+            "⚠️ Qdrant集合 '%s' 维度为 %s，但当前嵌入维度为 %s；切换到集合 '%s'",
+            original_name,
+            actual_size,
+            self.vector_size,
+            dimensioned_name,
+        )
+        self.collection_name = dimensioned_name
+
+        if dimensioned_name not in collection_names:
+            self._create_collection(dimensioned_name)
+            collection_names.append(dimensioned_name)
+
+    def _create_collection(self, collection_name: str) -> None:
+        hnsw_cfg = None
+        try:
+            hnsw_cfg = models.HnswConfigDiff(m=self.hnsw_m, ef_construct=self.hnsw_ef_construct)
+        except Exception:
+            hnsw_cfg = None
+        self.client.create_collection(
+            collection_name=collection_name,
+            vectors_config=VectorParams(
+                size=self.vector_size,
+                distance=self.distance
+            ),
+            hnsw_config=hnsw_cfg
+        )
+        logger.info(f"✅ 创建Qdrant集合: {collection_name}")
+
+    def _update_hnsw_config(self) -> None:
+        try:
+            self.client.update_collection(
+                collection_name=self.collection_name,
+                hnsw_config=models.HnswConfigDiff(m=self.hnsw_m, ef_construct=self.hnsw_ef_construct)
+            )
+        except Exception as ie:
+            logger.debug(f"跳过更新HNSW配置: {ie}")
+
+    def _get_remote_vector_size(self, collection_name: str) -> Optional[int]:
+        try:
+            collection_info = self.client.get_collection(collection_name)
+            vectors_config = getattr(getattr(collection_info, "config", None), "params", None)
+            vectors = getattr(vectors_config, "vectors", None)
+            return self._extract_vector_size(vectors)
+        except Exception as e:
+            logger.debug(f"获取集合维度失败: {collection_name} - {e}")
+            return None
+
+    def _extract_vector_size(self, vectors: Any) -> Optional[int]:
+        if vectors is None:
+            return None
+        size = getattr(vectors, "size", None)
+        if size is not None:
+            return int(size)
+        if isinstance(vectors, dict):
+            if "size" in vectors:
+                return int(vectors["size"])
+            for value in vectors.values():
+                nested_size = self._extract_vector_size(value)
+                if nested_size is not None:
+                    return nested_size
+        return None
 
     def _ensure_payload_indexes(self):
         """为常用过滤字段创建payload索引"""
@@ -229,6 +282,9 @@ class QdrantVectorStore:
                 ("is_rag_data", models.PayloadSchemaType.BOOL),
                 ("rag_namespace", models.PayloadSchemaType.KEYWORD),
                 ("data_source", models.PayloadSchemaType.KEYWORD),
+                ("doc_id", models.PayloadSchemaType.KEYWORD),
+                ("document_id", models.PayloadSchemaType.KEYWORD),
+                ("source_path", models.PayloadSchemaType.KEYWORD),
             ]
             for field_name, schema_type in index_fields:
                 try:
@@ -242,6 +298,27 @@ class QdrantVectorStore:
                     logger.debug(f"索引 {field_name} 已存在或创建失败: {ie}")
         except Exception as e:
             logger.debug(f"创建payload索引时出错: {e}")
+
+    def _build_payload_filter(self, where: Optional[Dict[str, Any]] = None) -> Optional[Filter]:
+        """从简单的等值条件构建Qdrant payload过滤器。"""
+        if not where:
+            return None
+
+        conditions = []
+        for key, value in where.items():
+            if value is None:
+                continue
+            if isinstance(value, (str, int, float, bool)):
+                conditions.append(
+                    FieldCondition(
+                        key=key,
+                        match=MatchValue(value=value)
+                    )
+                )
+
+        if not conditions:
+            return None
+        return Filter(must=conditions)
 
     def add_vectors(
             self,
@@ -358,20 +435,7 @@ class QdrantVectorStore:
                 return []
 
             # 构建过滤器
-            query_filter = None
-            if where:
-                conditions = []
-                for key, value in where.items():
-                    if isinstance(value, (str, int, float, bool)):
-                        conditions.append(
-                            FieldCondition(
-                                key=key,
-                                match=MatchValue(value=value)
-                            )
-                        )
-
-                if conditions:
-                    query_filter = Filter(must=conditions)
+            query_filter = self._build_payload_filter(where)
 
             # 执行搜索
             # 搜索参数
@@ -467,6 +531,35 @@ class QdrantVectorStore:
             logger.error(f"❌ 删除向量失败: {e}")
             return False
 
+    def delete_by_filter(self, where: Dict[str, Any]) -> bool:
+        """
+        按payload等值条件删除向量。
+
+        Args:
+            where: payload字段等值条件，多个字段之间为AND关系
+
+        Returns:
+            bool: 是否成功提交删除操作
+        """
+        try:
+            query_filter = self._build_payload_filter(where)
+            if query_filter is None:
+                logger.warning("⚠️ 删除过滤条件为空，已跳过")
+                return False
+
+            self.client.delete(
+                collection_name=self.collection_name,
+                points_selector=models.FilterSelector(filter=query_filter),
+                wait=True
+            )
+
+            logger.info(f"✅ 成功按过滤条件删除Qdrant向量: {where}")
+            return True
+
+        except Exception as e:
+            logger.error(f"❌ 按过滤条件删除向量失败: {e}")
+            return False
+
     def clear_collection(self) -> bool:
         """
         清空集合
@@ -535,7 +628,9 @@ class QdrantVectorStore:
                 "points_count": points_count or 0,
                 "segments_count": getattr(collection_info, "segments_count", 0) or 0,
                 "config": {
-                    "vector_size": self.vector_size,
+                    "vector_size": self._extract_vector_size(
+                        getattr(getattr(getattr(collection_info, "config", None), "params", None), "vectors", None)
+                    ) or self.vector_size,
                     "distance": self.distance.value,
                 }
             }

@@ -1172,7 +1172,8 @@ def create_rag_pipeline(
         distance="cosine"
     )
 
-    def add_documents(file_paths: List[str], chunk_size: int = 800, chunk_overlap: int = 100):
+    def add_documents(file_paths: List[str], chunk_size: int = 800, chunk_overlap: int = 100,
+                      metadata: Optional[Dict[str, Any]] = None):
         """Add documents to RAG pipeline"""
         chunks = load_and_chunk_texts(
             paths=file_paths,
@@ -1181,6 +1182,10 @@ def create_rag_pipeline(
             namespace=rag_namespace,
             source_label="rag"
         )
+        if metadata:
+            clean_metadata = {k: v for k, v in metadata.items() if v is not None}
+            for chunk in chunks:
+                chunk.setdefault("metadata", {}).update(clean_metadata)
         index_chunks(
             store=store,
             chunks=chunks,

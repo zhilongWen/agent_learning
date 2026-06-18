@@ -50,7 +50,7 @@
 - Semantic memory (`mem/types/semantic.py`) combines embeddings, Qdrant vector search, spaCy entity extraction, and Neo4j graph storage.
 - Perceptual memory (`mem/types/perceptual.py`) supports text/image/audio/video metadata; text embeddings use the unified embedder, images/audio use deterministic hash vectors by default. CLIP/CLAP are opt-in via `PERCEPTUAL_ENABLE_CLIP=1` / `PERCEPTUAL_ENABLE_CLAP=1`, and `PERCEPTUAL_MODEL_LOCAL_ONLY` defaults to local-only loading.
 - `mem/storage/document_store.py` implements SQLite storage for users, memories, concepts, and relationships.
-- `mem/storage/qdrant_store.py` implements Qdrant vector storage and a connection manager keyed by URL/collection. Its search path supports both older `client.search(...)` and newer `client.query_points(...)` qdrant-client APIs.
+- `mem/storage/qdrant_store.py` implements Qdrant vector storage and a connection manager keyed by URL/collection/dimension. Its search path supports both older `client.search(...)` and newer `client.query_points(...)` qdrant-client APIs. If an existing Qdrant collection has a different vector dimension from the active embedder, it automatically switches to a dimension-suffixed collection such as `rag_knowledge_base_dim384`.
 - `mem/storage/neo4j_store.py` implements Neo4j entity and relationship storage.
 - `mem/embedding.py` provides global embedding model selection: `EMBED_MODEL_TYPE` (`dashscope`, `local`, `tfidf`), `EMBED_MODEL_NAME`, `EMBED_API_KEY`, and `EMBED_BASE_URL`.
 

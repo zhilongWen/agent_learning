@@ -928,9 +928,9 @@ def main():
     # demo_simple_agent_with_rag()
     # demo_combined_memory_and_rag()
     # demo_four_memory_types()
-    # demo_tool_features()
+    demo_tool_features()
     # demo_advanced_features()
-    demo_enhanced_pdf_and_local_embedding()
+    # demo_enhanced_pdf_and_local_embedding()
     # demo_real_world_scenario()
     # show_system_capabilities()
 

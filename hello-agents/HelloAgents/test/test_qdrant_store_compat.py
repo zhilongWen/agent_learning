@@ -8,6 +8,11 @@ from qdrant_client.http.models import Distance
 class QueryPointsOnlyClient:
     def __init__(self):
         self.query_args = None
+        self.collections = {
+            "compat_test": SimpleNamespace(size=3),
+            "rag_knowledge_base": SimpleNamespace(size=1024),
+        }
+        self.created_collections = []
 
     def query_points(self, **kwargs):
         self.query_args = kwargs
@@ -19,11 +24,29 @@ class QueryPointsOnlyClient:
         )
 
     def get_collection(self, collection_name):
+        vectors = self.collections.get(collection_name)
         return SimpleNamespace(
             points_count=2,
             indexed_vectors_count=2,
             segments_count=1,
+            config=SimpleNamespace(
+                params=SimpleNamespace(vectors=vectors)
+            ),
         )
+
+    def get_collections(self):
+        collections = [SimpleNamespace(name=name) for name in self.collections]
+        return SimpleNamespace(collections=collections)
+
+    def create_collection(self, collection_name, vectors_config, hnsw_config=None):
+        self.collections[collection_name] = vectors_config
+        self.created_collections.append(collection_name)
+
+    def update_collection(self, **kwargs):
+        return None
+
+    def create_payload_index(self, **kwargs):
+        return None
 
 
 class QdrantStoreCompatTest(unittest.TestCase):
@@ -55,6 +78,17 @@ class QdrantStoreCompatTest(unittest.TestCase):
         self.assertEqual(info["points_count"], 2)
         self.assertEqual(info["vectors_count"], 2)
         self.assertEqual(info["indexed_vectors_count"], 2)
+        self.assertEqual(info["config"]["vector_size"], 3)
+
+    def test_existing_collection_with_different_dimension_gets_dimension_suffix(self):
+        store = self.make_store()
+        store.collection_name = "rag_knowledge_base"
+        store.vector_size = 384
+
+        store._ensure_collection()
+
+        self.assertEqual(store.collection_name, "rag_knowledge_base_dim384")
+        self.assertIn("rag_knowledge_base_dim384", store.client.created_collections)
 
 
 if __name__ == "__main__":
