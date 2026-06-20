@@ -3,6 +3,7 @@ from tools.async_executor import AsyncToolExecutor, run_parallel_tools, run_batc
     run_batch_tool_sync
 from tools.base import Tool, ToolParameter
 from tools.builtin.memory_tool import MemoryTool
+from tools.builtin.protocol_tools import MCPTool, ANPTool, A2ATool
 from tools.builtin.rag_tool import RAGTool
 from tools.chain import ToolChain, ToolChainManager, create_research_chain, create_simple_chain
 from tools.registry import ToolRegistry, global_registry
@@ -30,6 +31,11 @@ __all__ = [
     "ToolChainManager",
     "create_research_chain",
     "create_simple_chain",
+
+    # 协议工具
+    "MCPTool",
+    "A2ATool",
+    "ANPTool",
 
     # 异步执行功能
     "AsyncToolExecutor",
