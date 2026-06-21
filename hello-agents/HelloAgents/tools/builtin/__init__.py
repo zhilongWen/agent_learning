@@ -1,6 +1,7 @@
 """内置工具模块"""
 from tools import MCPTool, A2ATool, ANPTool
 from tools.builtin.bfcl_evaluation_tool import BFCLEvaluationTool
+from tools.builtin.gaia_evaluation_tool import GAIAEvaluationTool
 from tools.builtin.llm_judge_tool import LLMJudgeTool
 from tools.builtin.memory_tool import MemoryTool
 from tools.builtin.rag_tool import RAGTool
@@ -17,6 +18,7 @@ __all__ = [
     "A2ATool",
     "ANPTool",
     "BFCLEvaluationTool",
+    "GAIAEvaluationTool",
     "LLMJudgeTool",
     "WinRateTool",
 ]

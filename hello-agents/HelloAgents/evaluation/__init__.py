@@ -1,4 +1,4 @@
-from evaluation.benchmarks import BFCLEvaluator, LLMJudgeEvaluator, WinRateEvaluator
+from evaluation.benchmarks import BFCLEvaluator, LLMJudgeEvaluator, WinRateEvaluator, GAIAEvaluator
 from evaluation.benchmarks.bfcl import BFCLDataset
 
 __all__ = [
@@ -9,4 +9,5 @@ __all__ = [
     "BFCLEvaluator",
     "LLMJudgeEvaluator",
     "WinRateEvaluator",
+    "GAIAEvaluator",
 ]

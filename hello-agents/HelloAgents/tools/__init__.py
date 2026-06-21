@@ -2,6 +2,7 @@
 from tools.async_executor import AsyncToolExecutor, run_parallel_tools, run_batch_tool, run_parallel_tools_sync, \
     run_batch_tool_sync
 from tools.base import Tool, ToolParameter
+from tools.builtin import BFCLEvaluationTool, LLMJudgeTool, GAIAEvaluationTool, WinRateTool
 from tools.builtin.memory_tool import MemoryTool
 from tools.builtin.protocol_tools import MCPTool, ANPTool, A2ATool
 from tools.builtin.rag_tool import RAGTool
@@ -36,6 +37,12 @@ __all__ = [
     "MCPTool",
     "A2ATool",
     "ANPTool",
+
+    # 评估工具
+    "BFCLEvaluationTool",
+    "GAIAEvaluationTool",
+    "LLMJudgeTool",
+    "WinRateTool",
 
     # 异步执行功能
     "AsyncToolExecutor",
