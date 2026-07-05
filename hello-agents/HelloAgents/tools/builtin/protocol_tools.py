@@ -14,7 +14,7 @@ from protocols.a2a.implementation import A2A_AVAILABLE
 from protocols.mcp.client import MCPClient
 import os
 
-from tools import ToolParameter
+from tools.base import Tool, ToolParameter
 
 # MCP服务器环境变量映射表
 # 用于自动检测常见MCP服务器需要的环境变量
