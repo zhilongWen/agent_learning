@@ -39,11 +39,12 @@ client = MCPClient(config)
 """
 
 from typing import Dict, Any, List, Optional, Union
+import asyncio
+import os
 
 try:
     from fastmcp import Client, FastMCP
     from fastmcp.client.transports import PythonStdioTransport, SSETransport, StreamableHttpTransport
-
     FASTMCP_AVAILABLE = True
 except ImportError:
     FASTMCP_AVAILABLE = False
@@ -97,20 +98,19 @@ class MCPClient:
 
     def _prepare_server_source(self, server_source: Union[str, List[str], FastMCP, Dict[str, Any]]):
         """准备服务器源，根据类型创建合适的传输配置"""
-
+        
         # 1. FastMCP 实例 - 内存传输
         if isinstance(server_source, FastMCP):
             print(f"🧠 使用内存传输: {server_source.name}")
             return server_source
-
+        
         # 2. 配置字典 - 根据配置创建传输
         if isinstance(server_source, dict):
             print(f"⚙️ 使用配置传输: {server_source.get('transport', 'stdio')}")
             return self._create_transport_from_config(server_source)
-
+        
         # 3. HTTP URL - HTTP/SSE 传输
-        if isinstance(server_source, str) and (
-                server_source.startswith("http://") or server_source.startswith("https://")):
+        if isinstance(server_source, str) and (server_source.startswith("http://") or server_source.startswith("https://")):
             transport_type = self.transport_type or "http"
             print(f"🌐 使用 {transport_type.upper()} 传输: {server_source}")
             if transport_type == "sse":
@@ -148,7 +148,7 @@ class MCPClient:
                     env=self.env if self.env else None,
                     **self.transport_kwargs
                 )
-
+        
         # 6. 其他情况 - 直接返回，让 FastMCP 自动推断
         print(f"🔍 自动推断传输: {server_source}")
         return server_source
@@ -156,7 +156,7 @@ class MCPClient:
     def _create_transport_from_config(self, config: Dict[str, Any]):
         """从配置字典创建传输"""
         transport_type = config.get("transport", "stdio")
-
+        
         if transport_type == "stdio":
             # 检查是否是 Python 脚本
             args = config.get("args", [])
@@ -321,8 +321,7 @@ class MCPClient:
             return [
                 {
                     "role": msg.role,
-                    "content": getattr(msg.content, 'text', str(msg.content)) if hasattr(msg.content, 'text') else str(
-                        msg.content)
+                    "content": getattr(msg.content, 'text', str(msg.content)) if hasattr(msg.content, 'text') else str(msg.content)
                 }
                 for msg in result.messages
             ]
@@ -332,7 +331,7 @@ class MCPClient:
         """测试服务器连接"""
         if not self.client:
             raise RuntimeError("Client not connected. Use 'async with client:' context manager.")
-
+        
         try:
             await self.client.ping()
             return True
@@ -343,7 +342,7 @@ class MCPClient:
         """获取传输信息"""
         if not self.client:
             return {"status": "not_connected"}
-
+        
         transport = getattr(self.client, 'transport', None)
         if transport:
             return {

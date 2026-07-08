@@ -14,10 +14,10 @@ Berkeley Function Calling Leaderboard 是评估大语言模型工具调用能力
 - 数据集: https://huggingface.co/datasets/gorilla-llm/Berkeley-Function-Calling-Leaderboard
 """
 
-from evaluation.benchmarks.bfcl.bfcl_integration import BFCLIntegration
 from evaluation.benchmarks.bfcl.dataset import BFCLDataset
 from evaluation.benchmarks.bfcl.evaluator import BFCLEvaluator
 from evaluation.benchmarks.bfcl.metrics import BFCLMetrics
+from evaluation.benchmarks.bfcl.bfcl_integration import BFCLIntegration
 
 __all__ = [
     "BFCLDataset",
@@ -25,3 +25,4 @@ __all__ = [
     "BFCLMetrics",
     "BFCLIntegration",
 ]
+

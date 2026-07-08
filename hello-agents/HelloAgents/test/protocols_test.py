@@ -415,8 +415,9 @@ def lesson_1_5_mcp_in_helloagents():
     print_lesson("1.5", "在 HelloAgents 中集成 MCP")
 
     integration_code = '''
-from hello_agents import SimpleAgent, HelloAgentsLLM
-from hello_agents.tools.builtin.protocol_tools import MCPTool
+from agents import SimpleAgent
+from core import HelloAgentsLLM
+from tools.builtin.protocol_tools import MCPTool
 
 # 创建智能体
 llm = HelloAgentsLLM()
@@ -504,7 +505,7 @@ def lesson_2_2_create_a2a_agents():
     print_lesson("2.2", "基于官方 SDK 创建智能体")
 
     agent_code = '''
-from hello_agents.protocols.a2a.implementation import A2AServer
+from protocols.a2a.implementation import A2AServer
 
 # 创建智能体
 calculator = A2AServer(
@@ -737,7 +738,7 @@ def lesson_3_2_service_discovery():
     print_lesson("3.2", "服务发现和注册")
 
     discovery_code = '''
-from hello_agents.protocols.anp.implementation import ANPDiscovery, ServiceInfo
+from protocols.anp.implementation import ANPDiscovery, ServiceInfo
 
 # 创建服务发现组件
 discovery = ANPDiscovery()
@@ -1094,8 +1095,9 @@ def lesson_4_3_combination_strategies():
 
     combination_code = '''
 # 多协议集成示例
-from hello_agents import SimpleAgent, HelloAgentsLLM
-from hello_agents.tools.builtin.protocol_tools import MCPTool, A2ATool
+from agents import SimpleAgent
+from core import HelloAgentsLLM
+from tools.builtin.protocol_tools import MCPTool, A2ATool
 
 # 创建智能体
 agent = SimpleAgent(name="多协议助手", llm=HelloAgentsLLM())

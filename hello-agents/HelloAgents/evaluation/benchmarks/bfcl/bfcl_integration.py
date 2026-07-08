@@ -40,7 +40,7 @@ class BFCLIntegration:
             category="simple_python"
         )
     """
-
+    
     def __init__(self, project_root: Optional[Union[str, Path]] = None):
         """初始化BFCL集成
         
@@ -50,7 +50,7 @@ class BFCLIntegration:
         self.project_root = Path(project_root) if project_root else Path.cwd()
         self.result_dir = self.project_root / "result"
         self.score_dir = self.project_root / "score"
-
+    
     def is_installed(self) -> bool:
         """检查BFCL评估工具是否已安装
         
@@ -67,7 +67,7 @@ class BFCLIntegration:
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
             return False
-
+    
     def install(self) -> bool:
         """安装BFCL评估工具
         
@@ -76,7 +76,7 @@ class BFCLIntegration:
         """
         print("📦 正在安装BFCL评估工具...")
         print("   运行: pip install bfcl-eval")
-
+        
         try:
             result = subprocess.run(
                 ["pip", "install", "bfcl-eval"],
@@ -84,26 +84,26 @@ class BFCLIntegration:
                 text=True,
                 timeout=300
             )
-
+            
             if result.returncode == 0:
                 print("✅ BFCL评估工具安装成功")
                 return True
             else:
                 print(f"❌ 安装失败: {result.stderr}")
                 return False
-
+                
         except subprocess.TimeoutExpired:
             print("❌ 安装超时")
             return False
         except Exception as e:
             print(f"❌ 安装出错: {e}")
             return False
-
+    
     def prepare_result_file(
-            self,
-            source_file: Union[str, Path],
-            model_name: str,
-            category: str
+        self,
+        source_file: Union[str, Path],
+        model_name: str,
+        category: str
     ) -> Path:
         """准备BFCL评估所需的结果文件
         
@@ -119,14 +119,14 @@ class BFCLIntegration:
             目标文件路径
         """
         source_file = Path(source_file)
-
+        
         # 创建目标目录
         target_dir = self.result_dir / model_name
         target_dir.mkdir(parents=True, exist_ok=True)
-
+        
         # 确定目标文件名
         target_file = target_dir / f"BFCL_v3_{category}_result.json"
-
+        
         # 复制文件
         if source_file.exists():
             import shutil
@@ -136,14 +136,14 @@ class BFCLIntegration:
             print(f"   目标文件: {target_file}")
         else:
             print(f"⚠️ 源文件不存在: {source_file}")
-
+        
         return target_file
-
+    
     def run_evaluation(
-            self,
-            model_name: str,
-            category: str,
-            result_file: Optional[Union[str, Path]] = None
+        self,
+        model_name: str,
+        category: str,
+        result_file: Optional[Union[str, Path]] = None
     ) -> bool:
         """运行BFCL官方评估
         
@@ -158,25 +158,25 @@ class BFCLIntegration:
         # 如果提供了结果文件，先准备
         if result_file:
             self.prepare_result_file(result_file, model_name, category)
-
+        
         # 设置环境变量
         env = os.environ.copy()
         env["BFCL_PROJECT_ROOT"] = str(self.project_root)
-
+        
         print(f"\n🔧 运行BFCL官方评估...")
         print(f"   模型: {model_name}")
         print(f"   类别: {category}")
         print(f"   项目根目录: {self.project_root}")
-
+        
         # 构建命令
         cmd = [
             "bfcl", "evaluate",
             "--model", model_name,
             "--test-category", category
         ]
-
+        
         print(f"   命令: {' '.join(cmd)}")
-
+        
         try:
             result = subprocess.run(
                 cmd,
@@ -185,7 +185,7 @@ class BFCLIntegration:
                 timeout=600,
                 env=env
             )
-
+            
             if result.returncode == 0:
                 print("✅ BFCL评估完成")
                 print(result.stdout)
@@ -194,18 +194,18 @@ class BFCLIntegration:
                 print(f"❌ 评估失败")
                 print(f"   错误信息: {result.stderr}")
                 return False
-
+                
         except subprocess.TimeoutExpired:
             print("❌ 评估超时")
             return False
         except Exception as e:
             print(f"❌ 评估出错: {e}")
             return False
-
+    
     def parse_results(
-            self,
-            model_name: str,
-            category: str
+        self,
+        model_name: str,
+        category: str
     ) -> Optional[Dict[str, Any]]:
         """解析BFCL评估结果
         
@@ -218,31 +218,31 @@ class BFCLIntegration:
         """
         # BFCL评估结果路径
         score_file = self.score_dir / model_name / f"BFCL_v3_{category}_score.json"
-
+        
         if not score_file.exists():
             print(f"⚠️ 评估结果文件不存在: {score_file}")
             return None
-
+        
         try:
             with open(score_file, 'r', encoding='utf-8') as f:
                 results = json.load(f)
-
+            
             print(f"\n📊 BFCL评估结果")
             print(f"   模型: {model_name}")
             print(f"   类别: {category}")
-
+            
             # 提取关键指标
             if isinstance(results, dict):
                 for key, value in results.items():
                     if isinstance(value, (int, float)):
                         print(f"   {key}: {value}")
-
+            
             return results
-
+            
         except Exception as e:
             print(f"❌ 解析结果失败: {e}")
             return None
-
+    
     def get_summary_csv(self) -> Optional[Path]:
         """获取汇总CSV文件路径
         
@@ -256,19 +256,19 @@ class BFCLIntegration:
             data_overall.csv的路径，如果不存在则返回None
         """
         csv_file = self.score_dir / "data_overall.csv"
-
+        
         if csv_file.exists():
             print(f"\n📄 汇总CSV文件: {csv_file}")
             return csv_file
         else:
             print(f"⚠️ 汇总CSV文件不存在: {csv_file}")
             return None
-
+    
     def print_usage_guide(self):
         """打印使用指南"""
-        print("\n" + "=" * 60)
+        print("\n" + "="*60)
         print("BFCL官方评估工具使用指南")
-        print("=" * 60)
+        print("="*60)
         print("\n1. 安装BFCL评估工具：")
         print("   pip install bfcl-eval")
         print("\n2. 设置环境变量：")
@@ -280,4 +280,5 @@ class BFCLIntegration:
         print("\n5. 查看结果：")
         print("   评估结果在: score/{model_name}/BFCL_v3_{category}_score.json")
         print("   汇总结果在: score/data_overall.csv")
-        print("\n" + "=" * 60)
+        print("\n" + "="*60)
+

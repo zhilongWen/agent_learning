@@ -1,6 +1,16 @@
-from evaluation.benchmarks.bfcl import BFCLEvaluator
-from evaluation.benchmarks.data_generation import LLMJudgeEvaluator, WinRateEvaluator
-from evaluation.benchmarks.gaia import GAIAEvaluator
+"""
+Benchmarks 模块
+
+包含各种智能体评估基准测试:
+- BFCL: Berkeley Function Calling Leaderboard
+- GAIA: General AI Assistants Benchmark
+- Data Generation: 数据生成质量评估
+"""
+
+from evaluation.benchmarks.bfcl.evaluator import BFCLEvaluator
+from evaluation.benchmarks.gaia.evaluator import GAIAEvaluator
+from evaluation.benchmarks.data_generation.llm_judge import LLMJudgeEvaluator
+from evaluation.benchmarks.data_generation.win_rate import WinRateEvaluator
 
 __all__ = [
     "BFCLEvaluator",
@@ -8,3 +18,4 @@ __all__ = [
     "LLMJudgeEvaluator",
     "WinRateEvaluator",
 ]
+

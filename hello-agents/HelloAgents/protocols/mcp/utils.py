@@ -10,10 +10,10 @@ import json
 
 
 def create_context(
-        messages: Optional[List[Dict[str, Any]]] = None,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        resources: Optional[List[Dict[str, Any]]] = None,
-        metadata: Optional[Dict[str, Any]] = None
+    messages: Optional[List[Dict[str, Any]]] = None,
+    tools: Optional[List[Dict[str, Any]]] = None,
+    resources: Optional[List[Dict[str, Any]]] = None,
+    metadata: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     创建 MCP 上下文对象
@@ -63,22 +63,22 @@ def parse_context(context: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
             context = json.loads(context)
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON context: {e}")
-
+    
     if not isinstance(context, dict):
         raise ValueError("Context must be a dictionary or JSON string")
-
+    
     # 确保必需字段存在
     for field in ["messages", "tools", "resources"]:
         context.setdefault(field, [])
     context.setdefault("metadata", {})
-
+    
     return context
 
 
 def create_error_response(
-        error_message: str,
-        error_code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+    error_message: str,
+    error_code: Optional[str] = None,
+    details: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     创建错误响应
@@ -100,16 +100,16 @@ def create_error_response(
             "code": error_code or "UNKNOWN_ERROR"
         }
     }
-
+    
     if details:
         response["error"]["details"] = details
-
+    
     return response
 
 
 def create_success_response(
-        data: Any,
-        metadata: Optional[Dict[str, Any]] = None
+    data: Any,
+    metadata: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     创建成功响应
@@ -128,10 +128,10 @@ def create_success_response(
         "success": True,
         "data": data
     }
-
+    
     if metadata:
         response["metadata"] = metadata
-
+    
     return response
 
 
@@ -141,3 +141,4 @@ __all__ = [
     "create_error_response",
     "create_success_response",
 ]
+

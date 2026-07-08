@@ -13,6 +13,7 @@ GAIA 是由 Meta 开发的通用AI助手评估基准,包含466个真实世界问
 - 排行榜: https://huggingface.co/spaces/gaia-benchmark/leaderboard
 - 数据集: https://huggingface.co/datasets/gaia-benchmark/GAIA
 """
+
 from evaluation.benchmarks.gaia.dataset import GAIADataset
 from evaluation.benchmarks.gaia.evaluator import GAIAEvaluator
 from evaluation.benchmarks.gaia.metrics import GAIAMetrics
@@ -22,3 +23,4 @@ __all__ = [
     "GAIAEvaluator",
     "GAIAMetrics",
 ]
+

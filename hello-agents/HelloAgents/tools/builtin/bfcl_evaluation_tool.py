@@ -10,8 +10,9 @@ Berkeley Function Calling Leaderboard (BFCL) 一键评估工具
 5. 生成评估报告
 
 使用示例：
-    from hello_agents import SimpleAgent, HelloAgentsLLM
-    from hello_agents.tools.builtin import BFCLEvaluationTool
+    from agents import SimpleAgent
+from core import HelloAgentsLLM
+    from tools.builtin import BFCLEvaluationTool
 
     # 创建智能体
     llm = HelloAgentsLLM()
@@ -134,11 +135,11 @@ class BFCLEvaluationTool(Tool):
             - category_metrics: 分类指标
             - detailed_results: 详细结果
         """
-        from hello_agents.evaluation import BFCLDataset, BFCLEvaluator
+        from evaluation import BFCLDataset, BFCLEvaluator
 
-        print("\n" + "=" * 60)
+        print("\n" + "="*60)
         print("BFCL一键评估")
-        print("=" * 60)
+        print("="*60)
         print(f"\n配置:")
         print(f"   评估类别: {category}")
         print(f"   样本数量: {max_samples if max_samples > 0 else '全部'}")
@@ -149,9 +150,9 @@ class BFCLEvaluationTool(Tool):
             return self._create_error_result("BFCL数据目录不存在")
 
         # 步骤2: 运行HelloAgents评估
-        print("\n" + "=" * 60)
+        print("\n" + "="*60)
         print("步骤1: 运行HelloAgents评估")
-        print("=" * 60)
+        print("="*60)
 
         dataset = BFCLDataset(bfcl_data_dir=str(self.bfcl_data_dir), category=category)
         evaluator = BFCLEvaluator(dataset=dataset, category=category)
@@ -166,9 +167,9 @@ class BFCLEvaluationTool(Tool):
         print(f"   正确数: {results['correct_samples']}/{results['total_samples']}")
 
         # 步骤3: 导出BFCL格式结果
-        print("\n" + "=" * 60)
+        print("\n" + "="*60)
         print("步骤2: 导出BFCL格式结果")
-        print("=" * 60)
+        print("="*60)
 
         output_dir = self.project_root / "evaluation_results" / "bfcl_official"
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -184,9 +185,9 @@ class BFCLEvaluationTool(Tool):
             self._run_official_evaluation(output_file, model_name, category)
 
         # 步骤5: 生成评估报告
-        print("\n" + "=" * 60)
+        print("\n" + "="*60)
         print("步骤3: 生成评估报告")
-        print("=" * 60)
+        print("="*60)
 
         # 添加智能体和类别信息到结果中
         results['agent_name'] = getattr(agent, 'name', 'Unknown')
@@ -207,9 +208,9 @@ class BFCLEvaluationTool(Tool):
 
     def _run_official_evaluation(self, source_file: Path, model_name: str, category: str):
         """运行BFCL官方评估"""
-        print("\n" + "=" * 60)
+        print("\n" + "="*60)
         print("步骤3: 运行BFCL官方评估")
-        print("=" * 60)
+        print("="*60)
 
         # 复制结果文件到BFCL结果目录
         safe_model_name = model_name.replace("/", "_")
@@ -262,9 +263,9 @@ class BFCLEvaluationTool(Tool):
 
     def _show_official_results(self, model_name: str, category: str):
         """展示BFCL官方评估结果"""
-        print("\n" + "=" * 60)
+        print("\n" + "="*60)
         print("BFCL官方评估结果")
-        print("=" * 60)
+        print("="*60)
 
         # CSV文件
         csv_file = self.project_root / "score" / "data_non_live.csv"

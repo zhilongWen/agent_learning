@@ -9,7 +9,6 @@ import time
 import re
 import json
 from pathlib import Path
-
 from evaluation.benchmarks.gaia.dataset import GAIADataset
 from evaluation.benchmarks.gaia.metrics import GAIAMetrics
 
@@ -35,11 +34,11 @@ class GAIAEvaluator:
     """
 
     def __init__(
-            self,
-            dataset: Optional[GAIADataset] = None,
-            level: Optional[int] = None,
-            local_data_dir: Optional[str] = None,
-            strict_mode: bool = True
+        self,
+        dataset: Optional[GAIADataset] = None,
+        level: Optional[int] = None,
+        local_data_dir: Optional[str] = None,
+        strict_mode: bool = True
     ):
         """初始化 GAIA 评估器
 
@@ -49,14 +48,14 @@ class GAIAEvaluator:
             local_data_dir: 本地数据目录
             strict_mode: 是否使用严格匹配模式
         """
-        self.dataset = dataset if dataset is not None else GAIADataset(
+        self.dataset = dataset or GAIADataset(
             level=level,
             local_data_dir=local_data_dir
         )
         self.metrics = GAIAMetrics()
         self.level = level
         self.strict_mode = strict_mode
-
+        
     def evaluate(self, agent: Any, max_samples: Optional[int] = None) -> Dict[str, Any]:
         """评估智能体
 
@@ -87,12 +86,12 @@ class GAIAEvaluator:
         # 执行评估
         results = []
         level_stats = {1: {"total": 0, "correct": 0, "partial": 0},
-                       2: {"total": 0, "correct": 0, "partial": 0},
-                       3: {"total": 0, "correct": 0, "partial": 0}}
+                      2: {"total": 0, "correct": 0, "partial": 0},
+                      3: {"total": 0, "correct": 0, "partial": 0}}
 
         for i, sample in enumerate(dataset):
             if i % 10 == 0:
-                print(f"   进度: {i + 1}/{len(dataset)}")
+                print(f"   进度: {i+1}/{len(dataset)}")
 
             try:
                 sample_result = self.evaluate_sample(agent, sample)
@@ -159,7 +158,7 @@ class GAIAEvaluator:
             print(f"   {level_name}: {metrics['exact_match_rate']:.2%} 精确 / {metrics['partial_match_rate']:.2%} 部分")
 
         return final_results
-
+    
     def evaluate_sample(self, agent: Any, sample: Dict[str, Any]) -> Dict[str, Any]:
         """评估单个样本
 
@@ -335,14 +334,11 @@ class GAIAEvaluator:
 
         answer = answer.strip()
 
-        # 数字中的千位逗号不是列表分隔符。
-        numeric_candidate = re.sub(r'(?<=\d),(?=\d)', '', answer)
-        numeric_candidate = numeric_candidate.strip().replace('$', '').replace('%', '').replace('€', '').replace('£', '')
-        if re.fullmatch(r'[-+]?\d+(?:\.\d+)?', numeric_candidate):
-            return self._normalize_single_answer(answer)
+        # 数字中的千分位逗号不表示列表。
+        numeric_like = re.fullmatch(r"[\$€£]?\s*\d{1,3}(?:,\d{3})+(?:\.\d+)?%?", answer)
 
         # 检查是否是逗号分隔的列表
-        if ',' in answer:
+        if ',' in answer and not numeric_like:
             # 分隔并标准化每个元素
             parts = [self._normalize_single_answer(p.strip()) for p in answer.split(',')]
             # 按字母顺序排序（GAIA要求）
@@ -365,8 +361,9 @@ class GAIAEvaluator:
         # 移除货币符号和百分号
         answer = answer.replace('$', '').replace('%', '').replace('€', '').replace('£', '')
 
-        # 移除数字中的逗号分隔符（如 1,000 -> 1000），但保留列表分隔场景。
-        answer = re.sub(r'(?<=\d),(?=\d)', '', answer)
+        # 移除数字中的逗号分隔符（如 1,000 -> 1000）
+        # 但保留小数点
+        answer = re.sub(r'(\d),(\d)', r'\1\2', answer)
 
         # 移除多余空格
         answer = ' '.join(answer.split())
@@ -377,10 +374,10 @@ class GAIAEvaluator:
         return answer
 
     def export_to_gaia_format(
-            self,
-            results: Dict[str, Any],
-            output_path: Union[str, Path],
-            include_reasoning: bool = True
+        self,
+        results: Dict[str, Any],
+        output_path: Union[str, Path],
+        include_reasoning: bool = True
     ) -> None:
         """导出为GAIA官方格式
 

@@ -5,45 +5,27 @@ LLM Judge Evaluator
 """
 
 import json
-import os
 import time
-from typing import List, Dict, Any, Optional, TYPE_CHECKING
+from typing import List, Dict, Any, Optional
 from datetime import datetime
-
-from dotenv import load_dotenv
-
-if TYPE_CHECKING:
-    from core import HelloAgentsLLM
-
-load_dotenv(verbose=True)
-
-
-def _create_default_llm():
-    from core import HelloAgentsLLM
-
-    return HelloAgentsLLM(
-        model=os.getenv("MODEL_ID"),
-        app_id=os.getenv("API_KEY"),
-        base_url=os.getenv("BASE_URL"),
-        provider="openai"
-    )
+from core.llm import HelloAgentsLLM
 
 
 class LLMJudgeEvaluator:
     """LLM Judge评估器"""
-
+    
     # 评估维度
     EVALUATION_DIMENSIONS = [
-        "correctness",  # 正确性
-        "clarity",  # 清晰度
-        "difficulty_match",  # 难度匹配
-        "completeness"  # 完整性
+        "correctness",      # 正确性
+        "clarity",          # 清晰度
+        "difficulty_match", # 难度匹配
+        "completeness"      # 完整性
     ]
-
+    
     def __init__(
-            self,
-            llm: Optional["HelloAgentsLLM"] = None,
-            judge_model: str = "gpt-4o"
+        self,
+        llm: Optional[HelloAgentsLLM] = None,
+        judge_model: str = "gpt-4o"
     ):
         """
         初始化LLM Judge评估器
@@ -52,13 +34,13 @@ class LLMJudgeEvaluator:
             llm: LLM实例，如果为None则创建新实例
             judge_model: 评委模型名称
         """
-        self.llm = llm or _create_default_llm()
+        self.llm = llm or HelloAgentsLLM(model=judge_model)
         self.judge_model = judge_model
-
+        
     def evaluate_single(
-            self,
-            problem: Dict[str, Any],
-            reference: Optional[Dict[str, Any]] = None
+        self,
+        problem: Dict[str, Any],
+        reference: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         评估单个问题
@@ -71,22 +53,22 @@ class LLMJudgeEvaluator:
             评估结果，包含各维度评分和总分
         """
         start_time = time.time()
-
+        
         # 构建评估提示词
         prompt = self._build_evaluation_prompt(problem, reference)
 
         # 调用LLM进行评估
         messages = [{"role": "user", "content": prompt}]
         response = self.llm.invoke(messages)
-
+        
         # 解析评估结果
         scores = self._parse_evaluation_response(response)
-
+        
         # 计算总分
         total_score = sum(scores.values()) / len(scores)
-
+        
         execution_time = time.time() - start_time
-
+        
         return {
             "problem_id": problem.get("problem_id", "unknown"),
             "scores": scores,
@@ -94,11 +76,11 @@ class LLMJudgeEvaluator:
             "evaluation_text": response,
             "execution_time": execution_time
         }
-
+    
     def evaluate_batch(
-            self,
-            problems: List[Dict[str, Any]],
-            references: Optional[List[Dict[str, Any]]] = None
+        self,
+        problems: List[Dict[str, Any]],
+        references: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
         批量评估问题
@@ -114,21 +96,21 @@ class LLMJudgeEvaluator:
         print(f"   评委模型: {self.judge_model}")
         print(f"   评估数量: {len(problems)}")
         print(f"   评估维度: {', '.join(self.EVALUATION_DIMENSIONS)}")
-
+        
         results = []
         for idx, problem in enumerate(problems):
             print(f"\n   评估进度: {idx + 1}/{len(problems)}")
-
+            
             reference = references[idx] if references and idx < len(references) else None
             result = self.evaluate_single(problem, reference)
             results.append(result)
-
+            
             # 显示评分
             print(f"   ✓ {problem.get('problem_id', 'unknown')}: {result['total_score']:.2f}/5.0")
-
+        
         # 计算统计信息
         metrics = self._compute_metrics(results)
-
+        
         return {
             "results": results,
             "metrics": metrics,
@@ -136,11 +118,11 @@ class LLMJudgeEvaluator:
             "judge_model": self.judge_model,
             "num_problems": len(problems)
         }
-
+    
     def _build_evaluation_prompt(
-            self,
-            problem: Dict[str, Any],
-            reference: Optional[Dict[str, Any]] = None
+        self,
+        problem: Dict[str, Any],
+        reference: Optional[Dict[str, Any]] = None
     ) -> str:
         """构建评估提示词"""
         prompt = f"""你是一位专业的数学题目评估专家。请评估以下AIME风格数学题目的质量。
@@ -150,7 +132,7 @@ class LLMJudgeEvaluator:
 答案: {problem.get('answer', '')}
 解答: {problem.get('solution', '')}
 """
-
+        
         if reference:
             prompt += f"""
 【参考题目（AIME真题）】
@@ -158,7 +140,7 @@ class LLMJudgeEvaluator:
 答案: {reference.get('answer', '')}
 解答: {reference.get('solution', '')}
 """
-
+        
         prompt += """
 请从以下四个维度评估题目质量（每个维度1-5分）：
 
@@ -179,7 +161,7 @@ class LLMJudgeEvaluator:
 ```
 """
         return prompt
-
+    
     def _parse_evaluation_response(self, response: str) -> Dict[str, float]:
         """解析LLM评估响应"""
         try:
@@ -190,38 +172,36 @@ class LLMJudgeEvaluator:
                 json_str = response.split("```")[1].split("```")[0].strip()
             else:
                 json_str = response.strip()
-
-            # 解析JSON，兼容评价文本中出现的 LaTeX 命令反斜杠。
-            import re
-            fixed_json_str = re.sub(r'(?<!\\)\\(?=[A-Za-z])', r'\\\\', json_str)
-            data = json.loads(fixed_json_str)
-
+            
+            # 解析JSON
+            data = json.loads(json_str)
+            
             # 提取评分
             scores = {}
             for dim in self.EVALUATION_DIMENSIONS:
                 scores[dim] = float(data.get(dim, 3.0))  # 默认3分
-
+            
             return scores
-
+            
         except Exception as e:
             print(f"⚠️ 解析评估响应失败: {e}")
             # 返回默认评分
             return {dim: 3.0 for dim in self.EVALUATION_DIMENSIONS}
-
+    
     def _compute_metrics(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """计算评估指标"""
         if not results:
             return {}
-
+        
         # 计算各维度平均分
         dimension_scores = {dim: [] for dim in self.EVALUATION_DIMENSIONS}
         total_scores = []
-
+        
         for result in results:
             total_scores.append(result["total_score"])
             for dim in self.EVALUATION_DIMENSIONS:
                 dimension_scores[dim].append(result["scores"][dim])
-
+        
         metrics = {
             "average_total_score": sum(total_scores) / len(total_scores),
             "dimension_averages": {
@@ -231,15 +211,16 @@ class LLMJudgeEvaluator:
             "pass_rate": sum(1 for s in total_scores if s >= 3.5) / len(total_scores),
             "excellent_rate": sum(1 for s in total_scores if s >= 4.5) / len(total_scores)
         }
-
+        
         return metrics
-
+    
     def export_results(
-            self,
-            results: Dict[str, Any],
-            output_path: str
+        self,
+        results: Dict[str, Any],
+        output_path: str
     ):
         """导出评估结果"""
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(results, f, ensure_ascii=False, indent=2)
         print(f"\n✅ 评估结果已保存: {output_path}")
+

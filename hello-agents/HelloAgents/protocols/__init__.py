@@ -5,44 +5,44 @@
 - A2A (Agent-to-Agent Protocol): 智能体间通信协议
 - ANP (Agent Network Protocol): 智能体网络协议
 
+简洁导入示例：
+    >>> from protocols import MCPClient, MCPServer
+    >>> from protocols import A2AServer, A2AClient, AgentNetwork
+    >>> from protocols import ANPDiscovery, ANPNetwork
+
+完整导入示例（向后兼容）：
+    >>> from protocols.mcp import MCPClient, MCPServer
+    >>> from protocols.a2a import A2AServer, A2AClient
+    >>> from protocols.anp import ANPDiscovery, ANPNetwork
 """
 
-from protocols.base import Protocol
+from .base import Protocol
 
 # MCP 协议 - 导出所有常用类（可选，需要 fastmcp）
 try:
-    from protocols.mcp import (
+    from .mcp import (
         MCPClient,
         MCPServer,
         create_context,
         parse_context,
     )
-
     MCP_AVAILABLE = True
 except ImportError:
     MCP_AVAILABLE = False
-
-
     # 提供占位符
     class MCPClient:
         def __init__(self, *args, **kwargs):
             raise ImportError("MCP requires fastmcp: pip install fastmcp")
-
-
     class MCPServer:
         def __init__(self, *args, **kwargs):
             raise ImportError("MCP requires fastmcp: pip install fastmcp")
-
-
     def create_context(*args, **kwargs):
         raise ImportError("MCP requires fastmcp: pip install fastmcp")
-
-
     def parse_context(*args, **kwargs):
         raise ImportError("MCP requires fastmcp: pip install fastmcp")
 
 # A2A 协议 - 导出所有常用类
-from protocols.a2a import (
+from .a2a import (
     A2AAgent,
     A2AServer,
     A2AClient,
@@ -55,7 +55,7 @@ from protocols.a2a import (
 )
 
 # ANP 协议 - 导出所有常用类
-from protocols.anp import (
+from .anp import (
     ANPDiscovery,
     ANPNetwork,
     ServiceInfo,
@@ -91,3 +91,4 @@ __all__ = [
     "register_service",
     "discover_service",
 ]
+

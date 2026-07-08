@@ -27,7 +27,7 @@ class MCPWrappedTool(Tool):
         ...     }
         ... )
     """
-
+    
     def __init__(self,
                  mcp_tool: 'MCPTool',  # type: ignore
                  tool_info: Dict[str, Any],
@@ -58,7 +58,7 @@ class MCPWrappedTool(Tool):
             name=tool_name,
             description=description
         )
-
+    
     def _parse_input_schema(self, input_schema: Dict[str, Any]) -> List[ToolParameter]:
         """
         将MCP的input_schema转换为HelloAgents的ToolParameter列表
@@ -87,7 +87,7 @@ class MCPWrappedTool(Tool):
             ))
 
         return parameters
-
+    
     def get_parameters(self) -> List[ToolParameter]:
         """
         获取工具参数定义
@@ -116,3 +116,4 @@ class MCPWrappedTool(Tool):
 
         # 调用父MCP工具
         return self.mcp_tool.run(mcp_params)
+

@@ -30,11 +30,11 @@ class GAIADataset:
     """
 
     def __init__(
-            self,
-            dataset_name: str = "gaia-benchmark/GAIA",
-            split: str = "validation",
-            level: Optional[int] = None,
-            local_data_dir: Optional[Union[str, Path]] = None
+        self,
+        dataset_name: str = "gaia-benchmark/GAIA",
+        split: str = "validation",
+        level: Optional[int] = None,
+        local_data_dir: Optional[Union[str, Path]] = None
     ):
         """初始化 GAIA 数据集加载器
 
@@ -88,8 +88,8 @@ class GAIADataset:
             print("   ⚠️ 本地数据目录不存在")
             return data
 
-        # 查找JSON文件，使用集合去重，避免根目录文件被 glob 和 rglob 重复加载。
-        json_files = sorted(set(self.local_data_dir.rglob("*.json")))
+        # 查找JSON文件；rglob已经包含根目录文件，避免重复加载同一个文件。
+        json_files = list(self.local_data_dir.rglob("*.json"))
 
         # 过滤GAIA相关文件
         gaia_files = [f for f in json_files if "gaia" in f.name.lower()]
@@ -105,7 +105,8 @@ class GAIADataset:
                 else:
                     data.append(self._standardize_item(file_data))
 
-                print(f"   加载文件: {json_file.name} ({len(file_data)} 样本)")
+                count = len(file_data) if isinstance(file_data, list) else 1
+                print(f"   加载文件: {json_file.name} ({count} 样本)")
             except Exception as e:
                 print(f"   ⚠️ 加载文件失败: {json_file.name} - {e}")
 
@@ -123,18 +124,18 @@ class GAIADataset:
             import json
             from pathlib import Path
 
-            print(f"   准备从HuggingFace加载: {self.dataset_name}")
+            print(f"   正在从HuggingFace下载: {self.dataset_name}")
 
             # 获取HF token
             hf_token = os.getenv("HF_TOKEN")
             if not hf_token:
-                print("   ⚠️ 未找到HF_TOKEN环境变量，跳过GAIA数据集下载")
+                print("   ⚠️ 未找到HF_TOKEN环境变量")
                 print("   GAIA是gated dataset，需要在HuggingFace上申请访问权限")
                 print("   然后设置环境变量: HF_TOKEN=your_token")
                 return []
 
             # 下载数据集到本地
-            print(f"   📥 正在下载GAIA数据集...")
+            print(f"   📥 下载GAIA数据集...")
             # 使用当前工作目录下的data/gaia文件夹
             local_dir = Path.cwd() / "data" / "gaia"
             local_dir.mkdir(parents=True, exist_ok=True)
@@ -149,16 +150,10 @@ class GAIADataset:
                 local_dir = Path(downloaded_dir)
                 print(f"   ✓ 数据集下载完成: {local_dir}")
             except Exception as e:
-                error_message = str(e)
-                if "403" in error_message or "gated repo" in error_message or "restricted" in error_message:
-                    print("   ⚠️ GAIA数据集访问受限，当前HF_TOKEN没有授权，跳过下载")
-                    print("   请访问 https://huggingface.co/datasets/gaia-benchmark/GAIA 申请访问权限")
-                    print("   授权通过后，确认环境变量 HF_TOKEN 使用的是同一个HuggingFace账号的token")
-                else:
-                    print(f"   ⚠️ 下载失败: {e}")
-                    print("   请确保:")
-                    print("   1. 已在HuggingFace上申请GAIA访问权限")
-                    print("   2. HF_TOKEN正确且有效")
+                print(f"   ⚠️ 下载失败: {e}")
+                print("   请确保:")
+                print("   1. 已在HuggingFace上申请GAIA访问权限")
+                print("   2. HF_TOKEN正确且有效")
                 return []
 
             # 读取metadata.jsonl文件
@@ -219,7 +214,7 @@ class GAIADataset:
         }
 
         return standardized
-
+    
     def get_sample(self, index: int) -> Dict[str, Any]:
         """获取单个样本
 

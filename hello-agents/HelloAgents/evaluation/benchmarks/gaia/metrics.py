@@ -4,7 +4,7 @@ GAIA 评估指标模块
 计算 GAIA 相关的评估指标
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import numpy as np
 
 
@@ -53,8 +53,8 @@ class GAIAMetrics:
 
     @staticmethod
     def calculate_level_metrics(
-            results: List[Dict[str, Any]],
-            level: int
+        results: List[Dict[str, Any]],
+        level: int
     ) -> Dict[str, float]:
         """计算特定难度级别的指标
 
@@ -225,8 +225,7 @@ class GAIAMetrics:
         """分析错误情况"""
         total_errors = sum(1 for r in results if not r.get("exact_match", False))
         partial_correct = sum(1 for r in results if r.get("partial_match", False) and not r.get("exact_match", False))
-        complete_wrong = sum(
-            1 for r in results if not r.get("partial_match", False) and not r.get("exact_match", False))
+        complete_wrong = sum(1 for r in results if not r.get("partial_match", False) and not r.get("exact_match", False))
 
         return {
             "total_errors": total_errors,
@@ -267,3 +266,4 @@ class GAIAMetrics:
         comparison["level_comparison"] = level_comparison
 
         return comparison
+

@@ -10,20 +10,12 @@ from typing import Dict, Any, List, Optional
 import asyncio
 
 try:
+    from a2a.client import A2AClient
     from a2a.types import Message
-
-    try:
-        # a2a-sdk 1.x exports Client/create_client instead of the older A2AClient name.
-        from a2a.client import Client as OfficialA2AClient, create_client as create_official_client
-    except ImportError:
-        OfficialA2AClient = None
-        create_official_client = None
-
     A2A_AVAILABLE = True
 except ImportError:
     A2A_AVAILABLE = False
-    OfficialA2AClient = None
-    create_official_client = None
+    A2AClient = None
     Message = None
 
 
@@ -31,11 +23,11 @@ class A2AServer:
     """A2A 服务器（使用 Flask 提供 HTTP API）"""
 
     def __init__(
-            self,
-            name: str,
-            description: str,
-            version: str = "1.0.0",
-            capabilities: Optional[Dict[str, Any]] = None
+        self,
+        name: str,
+        description: str,
+        version: str = "1.0.0",
+        capabilities: Optional[Dict[str, Any]] = None
     ):
         """
         初始化 A2A 服务器
@@ -59,11 +51,9 @@ class A2AServer:
 
     def skill(self, skill_name: str):
         """装饰器方式添加技能"""
-
         def decorator(func):
             self.add_skill(skill_name, func)
             return func
-
         return decorator
 
     def run(self, host: str = "0.0.0.0", port: int = 5000):
@@ -381,48 +371,6 @@ class AgentRegistry:
 
 
 # 示例：创建一个简单的 A2A Agent
-def _is_port_available(host: str, port: int) -> bool:
-    """检查端口是否可绑定。"""
-    import socket
-
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            sock.bind((host, port))
-            return True
-        except OSError:
-            return False
-
-
-def _find_available_port(host: str, preferred_port: int, max_attempts: int = 100) -> int:
-    """从首选端口开始寻找一个可用端口。"""
-    bind_host = "0.0.0.0" if host in {"", "0.0.0.0"} else host
-    for port in range(preferred_port, preferred_port + max_attempts):
-        if _is_port_available(bind_host, port):
-            return port
-    raise RuntimeError(
-        f"No available port found from {preferred_port} to {preferred_port + max_attempts - 1}"
-    )
-
-
-def _get_server_bind_address(default_host: str = "0.0.0.0", default_port: int = 5000):
-    """读取入口启动地址；未显式指定端口时自动避开已占用端口。"""
-    import os
-
-    host = os.getenv("A2A_HOST", default_host)
-    port_text = os.getenv("A2A_PORT")
-    if port_text:
-        try:
-            return host, int(port_text)
-        except ValueError as e:
-            raise ValueError(f"Invalid A2A_PORT value: {port_text}") from e
-
-    port = _find_available_port(host, default_port)
-    if port != default_port:
-        print(f"⚠️  Port {default_port} is in use, using available port {port} instead.")
-    return host, port
-
-
 def create_example_agent() -> A2AServer:
     """创建一个示例 A2A Agent"""
     if not A2A_AVAILABLE:
@@ -483,13 +431,9 @@ if __name__ == "__main__":
         print(f"📡 Version: {agent.version}")
         print(f"🛠️ Skills: {list(agent.skills.keys())}")
         print()
-        host, port = _get_server_bind_address()
-        agent.run(host=host, port=port)
+        agent.run(host="0.0.0.0", port=5000)
     except ImportError as e:
-        message = str(e)
-        print(f"❌ {message}")
-        if "Flask" in message or "flask" in message:
-            print("💡 Install Flask: pip install flask")
-        else:
-            print("💡 Install the A2A SDK: pip install a2a-sdk")
-            print("📖 Official repository: https://github.com/a2aproject/a2a-python")
+        print(f"❌ {e}")
+        print("💡 Install the A2A SDK: pip install a2a-sdk")
+        print("📖 Official repository: https://github.com/a2aproject/a2a-python")
+

@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 from pathlib import Path
 
-
 def format_time(timestamp: Optional[datetime] = None, format_str: str = "%Y-%m-%d %H:%M:%S") -> str:
     """
     格式化时间
@@ -20,7 +19,6 @@ def format_time(timestamp: Optional[datetime] = None, format_str: str = "%Y-%m-%
     if timestamp is None:
         timestamp = datetime.now()
     return timestamp.strftime(format_str)
-
 
 def validate_config(config: Dict[str, Any], required_keys: list) -> bool:
     """
@@ -37,7 +35,6 @@ def validate_config(config: Dict[str, Any], required_keys: list) -> bool:
     if missing_keys:
         raise ValueError(f"配置缺少必需的键: {missing_keys}")
     return True
-
 
 def safe_import(module_name: str, class_name: Optional[str] = None) -> Any:
     """
@@ -58,17 +55,14 @@ def safe_import(module_name: str, class_name: Optional[str] = None) -> Any:
     except (ImportError, AttributeError) as e:
         raise ImportError(f"无法导入 {module_name}.{class_name or ''}: {e}")
 
-
 def ensure_dir(path: Path) -> Path:
     """确保目录存在"""
     path.mkdir(parents=True, exist_ok=True)
     return path
 
-
 def get_project_root() -> Path:
     """获取项目根目录"""
     return Path(__file__).parent.parent.parent
-
 
 def merge_dicts(dict1: Dict, dict2: Dict) -> Dict:
     """深度合并两个字典"""

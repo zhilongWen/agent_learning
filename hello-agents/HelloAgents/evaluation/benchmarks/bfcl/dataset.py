@@ -7,6 +7,7 @@ BFCL 数据集加载模块
 
 from typing import List, Dict, Any, Optional, Union
 import json
+import os
 from pathlib import Path
 
 
@@ -62,9 +63,9 @@ class BFCLDataset:
     }
 
     def __init__(
-            self,
-            bfcl_data_dir: Union[str, Path] = "./temp_gorilla/berkeley-function-call-leaderboard/bfcl_eval/data",
-            category: Optional[str] = None
+        self,
+        bfcl_data_dir: Union[str, Path] = "./temp_gorilla/berkeley-function-call-leaderboard/bfcl_eval/data",
+        category: Optional[str] = None
     ):
         """初始化 BFCL 数据集加载器
 
@@ -119,7 +120,7 @@ class BFCLDataset:
         print(f"   Ground truth数: {len(self.ground_truth)}")
 
         return self.data
-
+    
     def _load_category(self, filename: str) -> List[Dict[str, Any]]:
         """加载指定类别的数据（包括测试数据和ground truth）
 
@@ -224,3 +225,4 @@ class BFCLDataset:
         if not self.data:
             self.load()
         return iter(self.data)
+

@@ -5,15 +5,15 @@
 - 连接 MCP 服务器（需要 mcp，可选）
 - 管理模型上下文
 """
-from protocols.mcp.utils import create_context, parse_context
+
+from .utils import create_context, parse_context
 
 # 服务器需要 fastmcp
 try:
+    from .server import MCPServer
     MCP_SERVER_AVAILABLE = True
 except ImportError:
     MCP_SERVER_AVAILABLE = False
-
-
     class MCPServer:
         def __init__(self, *args, **kwargs):
             raise ImportError(
@@ -23,11 +23,10 @@ except ImportError:
 
 # 客户端需要 mcp
 try:
+    from .client import MCPClient
     MCP_CLIENT_AVAILABLE = True
 except ImportError:
     MCP_CLIENT_AVAILABLE = False
-
-
     class MCPClient:
         def __init__(self, *args, **kwargs):
             raise ImportError(
@@ -41,3 +40,4 @@ __all__ = [
     "create_context",
     "parse_context",
 ]
+

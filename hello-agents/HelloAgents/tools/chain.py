@@ -1,7 +1,7 @@
 """工具链管理器 - HelloAgents工具链式调用支持"""
 
 from typing import List, Dict, Any, Optional
-from tools.registry import ToolRegistry
+from .registry import ToolRegistry
 
 
 class ToolChain:
@@ -45,36 +45,36 @@ class ToolChain:
             return "❌ 工具链为空，无法执行"
 
         print(f"🚀 开始执行工具链: {self.name}")
-
+        
         # 初始化上下文
         if context is None:
             context = {}
         context["input"] = input_data
-
+        
         final_result = input_data
-
+        
         for i, step in enumerate(self.steps):
             tool_name = step["tool_name"]
             input_template = step["input_template"]
             output_key = step["output_key"]
-
-            print(f"📝 执行步骤 {i + 1}/{len(self.steps)}: {tool_name}")
-
+            
+            print(f"📝 执行步骤 {i+1}/{len(self.steps)}: {tool_name}")
+            
             # 替换模板中的变量
             try:
                 actual_input = input_template.format(**context)
             except KeyError as e:
                 return f"❌ 模板变量替换失败: {e}"
-
+            
             # 执行工具
             try:
                 result = registry.execute_tool(tool_name, actual_input)
                 context[output_key] = result
                 final_result = result
-                print(f"✅ 步骤 {i + 1} 完成")
+                print(f"✅ 步骤 {i+1} 完成")
             except Exception as e:
                 return f"❌ 工具 '{tool_name}' 执行失败: {e}"
-
+        
         print(f"🎉 工具链 '{self.name}' 执行完成")
         return final_result
 
@@ -107,7 +107,7 @@ class ToolChainManager:
         """获取工具链信息"""
         if chain_name not in self.chains:
             return None
-
+        
         chain = self.chains[chain_name]
         return {
             "name": chain.name,

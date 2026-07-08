@@ -2,8 +2,8 @@
 
 import asyncio
 import concurrent.futures
-from typing import Dict, Any, List, Callable, Optional
-from tools.registry import ToolRegistry
+from typing import Dict, Any, List
+from .registry import ToolRegistry
 
 
 class AsyncToolExecutor:
@@ -16,10 +16,10 @@ class AsyncToolExecutor:
     async def execute_tool_async(self, tool_name: str, input_data: str) -> str:
         """异步执行单个工具"""
         loop = asyncio.get_event_loop()
-
+        
         def _execute():
             return self.registry.execute_tool(tool_name, input_data)
-
+        
         try:
             result = await loop.run_in_executor(self.executor, _execute)
             return result
@@ -37,20 +37,20 @@ class AsyncToolExecutor:
             执行结果列表，包含任务信息和结果
         """
         print(f"🚀 开始并行执行 {len(tasks)} 个工具任务")
-
+        
         # 创建异步任务
         async_tasks = []
         for i, task in enumerate(tasks):
             tool_name = task.get("tool_name")
             input_data = task.get("input_data", "")
-
+            
             if not tool_name:
                 continue
-
-            print(f"📝 创建任务 {i + 1}: {tool_name}")
+                
+            print(f"📝 创建任务 {i+1}: {tool_name}")
             async_task = self.execute_tool_async(tool_name, input_data)
             async_tasks.append((i, task, async_task))
-
+        
         # 等待所有任务完成
         results = []
         for i, task, async_task in async_tasks:
@@ -63,7 +63,7 @@ class AsyncToolExecutor:
                     "result": result,
                     "status": "success"
                 })
-                print(f"✅ 任务 {i + 1} 完成: {task['tool_name']}")
+                print(f"✅ 任务 {i+1} 完成: {task['tool_name']}")
             except Exception as e:
                 results.append({
                     "task_id": i,
@@ -72,8 +72,8 @@ class AsyncToolExecutor:
                     "result": str(e),
                     "status": "error"
                 })
-                print(f"❌ 任务 {i + 1} 失败: {task['tool_name']} - {e}")
-
+                print(f"❌ 任务 {i+1} 失败: {task['tool_name']} - {e}")
+        
         print(f"🎉 并行执行完成，成功: {sum(1 for r in results if r['status'] == 'success')}/{len(results)}")
         return results
 
@@ -105,16 +105,9 @@ class AsyncToolExecutor:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-
 
 # 便捷函数
-async def run_parallel_tools(registry: ToolRegistry, tasks: List[Dict[str, str]], max_workers: int = 4) -> List[
-    Dict[str, Any]]:
+async def run_parallel_tools(registry: ToolRegistry, tasks: List[Dict[str, str]], max_workers: int = 4) -> List[Dict[str, Any]]:
     """
     便捷函数：并行执行多个工具
     
@@ -130,8 +123,7 @@ async def run_parallel_tools(registry: ToolRegistry, tasks: List[Dict[str, str]]
         return await executor.execute_tools_parallel(tasks)
 
 
-async def run_batch_tool(registry: ToolRegistry, tool_name: str, input_list: List[str], max_workers: int = 4) -> List[
-    Dict[str, Any]]:
+async def run_batch_tool(registry: ToolRegistry, tool_name: str, input_list: List[str], max_workers: int = 4) -> List[Dict[str, Any]]:
     """
     便捷函数：批量执行同一个工具
     
@@ -149,14 +141,12 @@ async def run_batch_tool(registry: ToolRegistry, tool_name: str, input_list: Lis
 
 
 # 同步包装函数（为了兼容性）
-def run_parallel_tools_sync(registry: ToolRegistry, tasks: List[Dict[str, str]], max_workers: int = 4) -> List[
-    Dict[str, Any]]:
+def run_parallel_tools_sync(registry: ToolRegistry, tasks: List[Dict[str, str]], max_workers: int = 4) -> List[Dict[str, Any]]:
     """同步版本的并行工具执行"""
     return asyncio.run(run_parallel_tools(registry, tasks, max_workers))
 
 
-def run_batch_tool_sync(registry: ToolRegistry, tool_name: str, input_list: List[str], max_workers: int = 4) -> List[
-    Dict[str, Any]]:
+def run_batch_tool_sync(registry: ToolRegistry, tool_name: str, input_list: List[str], max_workers: int = 4) -> List[Dict[str, Any]]:
     """同步版本的批量工具执行"""
     return asyncio.run(run_batch_tool(registry, tool_name, input_list, max_workers))
 
@@ -164,11 +154,11 @@ def run_batch_tool_sync(registry: ToolRegistry, tool_name: str, input_list: List
 # 示例函数
 async def demo_parallel_execution():
     """演示并行执行的示例"""
-    from tools.registry import ToolRegistry
-
+    from .registry import ToolRegistry
+    
     # 创建注册表（这里假设已经注册了工具）
     registry = ToolRegistry()
-
+    
     # 定义并行任务
     tasks = [
         {"tool_name": "my_calculator", "input_data": "2 + 2"},
@@ -176,16 +166,16 @@ async def demo_parallel_execution():
         {"tool_name": "my_calculator", "input_data": "sqrt(16)"},
         {"tool_name": "my_calculator", "input_data": "10 / 2"},
     ]
-
+    
     # 并行执行
     results = await run_parallel_tools(registry, tasks)
-
+    
     # 显示结果
     print("\n📊 并行执行结果:")
     for result in results:
         status_icon = "✅" if result["status"] == "success" else "❌"
         print(f"{status_icon} {result['tool_name']}({result['input_data']}) = {result['result']}")
-
+    
     return results
 
 

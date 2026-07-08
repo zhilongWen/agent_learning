@@ -9,15 +9,15 @@ import os
 from typing import Dict, Any
 from datetime import datetime
 
-from core import HelloAgentsLLM
-from evaluation import LLMJudgeEvaluator
-from evaluation.benchmarks.data_generation import AIDataset
-from tools import Tool
+from tools.base import Tool
+from evaluation.benchmarks.data_generation.dataset import AIDataset
+from evaluation.benchmarks.data_generation.llm_judge import LLMJudgeEvaluator
+from core.llm import HelloAgentsLLM
 
 
 class LLMJudgeTool(Tool):
     """LLM Judge评估工具"""
-
+    
     def __init__(self, llm: HelloAgentsLLM = None):
         """
         初始化LLM Judge工具
@@ -30,7 +30,7 @@ class LLMJudgeTool(Tool):
             description="使用LLM作为评委评估数据生成质量"
         )
         self.llm = llm
-
+        
     def get_parameters(self) -> Dict[str, Any]:
         """获取工具参数定义"""
         return {
@@ -63,7 +63,7 @@ class LLMJudgeTool(Tool):
             },
             "required": ["generated_data_path"]
         }
-
+    
     def run(self, params: Dict[str, Any]) -> str:
         """
         运行LLM Judge评估
@@ -81,23 +81,23 @@ class LLMJudgeTool(Tool):
         max_samples = params.get("max_samples")
         output_dir = params.get("output_dir", "evaluation_results/llm_judge")
         judge_model = params.get("judge_model", "gpt-4o")
-
+        
         # 创建输出目录
         os.makedirs(output_dir, exist_ok=True)
-
-        print("\n" + "=" * 60)
+        
+        print("\n" + "="*60)
         print("🎯 LLM Judge评估")
-        print("=" * 60)
-
+        print("="*60)
+        
         # 1. 加载生成数据
         print(f"\n📥 步骤1: 加载生成数据")
         gen_dataset = AIDataset(dataset_type="generated", data_path=generated_data_path)
         gen_problems = gen_dataset.load()
-
+        
         if max_samples:
             gen_problems = gen_problems[:max_samples]
             print(f"   限制评估样本数: {max_samples}")
-
+        
         # 2. 加载参考数据（可选）
         ref_problems = None
         if reference_data_path:
@@ -110,33 +110,33 @@ class LLMJudgeTool(Tool):
             ref_problems = ref_dataset.load()
         else:
             print(f"\n⏭️  步骤2: 跳过参考数据加载（无对比）")
-
+        
         # 3. 创建评估器
         print(f"\n🔧 步骤3: 创建LLM Judge评估器")
         evaluator = LLMJudgeEvaluator(llm=self.llm, judge_model=judge_model)
-
+        
         # 4. 运行评估
         print(f"\n🚀 步骤4: 开始评估")
         results = evaluator.evaluate_batch(gen_problems, ref_problems)
-
+        
         # 5. 保存结果
         print(f"\n💾 步骤5: 保存评估结果")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         result_file = os.path.join(output_dir, f"llm_judge_results_{timestamp}.json")
         evaluator.export_results(results, result_file)
-
+        
         # 6. 生成报告
         print(f"\n📊 步骤6: 生成评估报告")
         report_file = os.path.join(output_dir, f"llm_judge_report_{timestamp}.md")
         self._generate_report(results, report_file)
-
-        print("\n" + "=" * 60)
+        
+        print("\n" + "="*60)
         print("✅ LLM Judge评估完成")
-        print("=" * 60)
+        print("="*60)
         print(f"\n📁 输出文件:")
         print(f"   - 评估结果: {result_file}")
         print(f"   - 评估报告: {report_file}")
-
+        
         # 返回简化的结果
         return json.dumps({
             "status": "success",
@@ -145,11 +145,11 @@ class LLMJudgeTool(Tool):
             "result_file": result_file,
             "report_file": report_file
         }, ensure_ascii=False, indent=2)
-
+    
     def _generate_report(self, results: Dict[str, Any], output_path: str):
         """生成Markdown评估报告"""
         metrics = results["metrics"]
-
+        
         report = f"""# LLM Judge评估报告
 
 ## 基本信息
@@ -178,7 +178,7 @@ class LLMJudgeTool(Tool):
 ## 详细结果
 
 """
-
+        
         # 添加每个题目的详细评分
         for idx, result in enumerate(results['results'][:10]):  # 只显示前10个
             report += f"""
@@ -191,10 +191,10 @@ class LLMJudgeTool(Tool):
   - 难度匹配: {result['scores']['difficulty_match']:.1f}
   - 完整性: {result['scores']['completeness']:.1f}
 """
-
+        
         if len(results['results']) > 10:
             report += f"\n*（仅显示前10个题目的详细评分，完整结果请查看JSON文件）*\n"
-
+        
         report += f"""
 ## 结论
 
@@ -204,12 +204,12 @@ class LLMJudgeTool(Tool):
 
 *报告生成时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}*
 """
-
+        
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(report)
-
+        
         print(f"✅ 评估报告已保存: {output_path}")
-
+    
     def _get_rating(self, score: float) -> str:
         """根据分数获取评级"""
         if score >= 4.5:
@@ -222,3 +222,4 @@ class LLMJudgeTool(Tool):
             return "一般 ⭐⭐"
         else:
             return "需改进 ⭐"
+

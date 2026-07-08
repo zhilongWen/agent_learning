@@ -10,7 +10,6 @@ import ast
 import re
 import time
 from pathlib import Path
-
 from evaluation.benchmarks.bfcl.dataset import BFCLDataset
 from evaluation.benchmarks.bfcl.metrics import BFCLMetrics
 
@@ -35,11 +34,11 @@ class BFCLEvaluator:
     """
 
     def __init__(
-            self,
-            dataset: Optional[BFCLDataset] = None,
-            category: Optional[str] = None,
-            evaluation_mode: str = "ast",
-            local_data_dir: Optional[str] = None
+        self,
+        dataset: Optional[BFCLDataset] = None,
+        category: Optional[str] = None,
+        evaluation_mode: str = "ast",
+        local_data_dir: Optional[str] = None
     ):
         """初始化 BFCL 评估器
 
@@ -56,7 +55,7 @@ class BFCLEvaluator:
         self.metrics = BFCLMetrics()
         self.evaluation_mode = evaluation_mode
         self.category = category
-
+        
     def evaluate(self, agent: Any, max_samples: Optional[int] = None) -> Dict[str, Any]:
         """评估智能体
 
@@ -90,7 +89,7 @@ class BFCLEvaluator:
 
         for i, sample in enumerate(dataset):
             if i % 10 == 0:
-                print(f"   进度: {i + 1}/{len(dataset)}")
+                print(f"   进度: {i+1}/{len(dataset)}")
 
             try:
                 sample_result = self.evaluate_sample(agent, sample)
@@ -149,7 +148,7 @@ class BFCLEvaluator:
             print(f"   {cat}: {metrics['accuracy']:.2%} ({metrics['correct']}/{metrics['total']})")
 
         return final_results
-
+    
     def evaluate_sample(self, agent: Any, sample: Dict[str, Any]) -> Dict[str, Any]:
         """评估单个样本
 
@@ -410,56 +409,62 @@ class BFCLEvaluator:
         return success, score
 
     def _ast_strings_match(self, pred: str, expected: str) -> bool:
-        """比较两个函数调用字符串是否在AST层面匹配。"""
+        """比较两个函数调用字符串是否在AST层面匹配"""
         try:
-            pred_expr = ast.parse(pred, mode='eval').body
-            exp_expr = ast.parse(expected, mode='eval').body
-            return self._ast_call_equal(pred_expr, exp_expr)
-        except Exception:
+            pred_call = self._normalize_call_ast(pred)
+            exp_call = self._normalize_call_ast(expected)
+            if pred_call and exp_call:
+                return pred_call == exp_call
+
+            pred_ast = ast.parse(pred, mode='eval')
+            exp_ast = ast.parse(expected, mode='eval')
+            return ast.dump(pred_ast) == ast.dump(exp_ast)
+        except:
+            # 如果AST解析失败，使用字符串相似度
             return pred.strip() == expected.strip()
 
-    def _ast_call_equal(self, pred_node: ast.AST, exp_node: ast.AST) -> bool:
-        """比较函数名和关键字参数，忽略参数顺序。"""
-        if not isinstance(pred_node, ast.Call) or not isinstance(exp_node, ast.Call):
-            return ast.dump(pred_node) == ast.dump(exp_node)
+    def _normalize_call_ast(self, call_text: str) -> Optional[tuple]:
+        """将函数调用字符串规范化为可比较结构，忽略关键字参数顺序。"""
+        expr = ast.parse(call_text, mode='eval').body
+        if not isinstance(expr, ast.Call):
+            return None
 
-        if ast.dump(pred_node.func) != ast.dump(exp_node.func):
-            return False
+        if isinstance(expr.func, ast.Name):
+            func_name = expr.func.id
+        elif isinstance(expr.func, ast.Attribute):
+            func_name = expr.func.attr
+        else:
+            return None
 
-        if len(pred_node.args) != len(exp_node.args):
-            return False
-        for pred_arg, exp_arg in zip(pred_node.args, exp_node.args):
-            if not self._ast_value_equal(pred_arg, exp_arg):
-                return False
+        args = []
+        for arg in expr.args:
+            try:
+                args.append(ast.literal_eval(arg))
+            except Exception:
+                args.append(ast.dump(arg))
 
-        pred_kwargs = {kw.arg: kw.value for kw in pred_node.keywords if kw.arg is not None}
-        exp_kwargs = {kw.arg: kw.value for kw in exp_node.keywords if kw.arg is not None}
-        if set(pred_kwargs.keys()) != set(exp_kwargs.keys()):
-            return False
+        kwargs = {}
+        for keyword in expr.keywords:
+            if keyword.arg is None:
+                return None
+            try:
+                kwargs[keyword.arg] = ast.literal_eval(keyword.value)
+            except Exception:
+                kwargs[keyword.arg] = ast.dump(keyword.value)
 
-        return all(self._ast_value_equal(pred_kwargs[key], exp_kwargs[key]) for key in pred_kwargs)
+        return func_name, tuple(args), tuple(sorted(kwargs.items()))
 
-    def _ast_value_equal(self, pred_node: ast.AST, exp_node: ast.AST) -> bool:
-        """比较 AST 参数值，支持等价常量表达式。"""
-        try:
-            pred_value = ast.literal_eval(pred_node)
-            exp_value = ast.literal_eval(exp_node)
-            return pred_value == exp_value or str(pred_value) == str(exp_value)
-        except Exception:
-            return ast.dump(pred_node) == ast.dump(exp_node)
-
-    def _evaluate_execution(self, predicted: List[Dict], expected: List[str], functions: List[Dict]) -> tuple[
-        bool, float]:
+    def _evaluate_execution(self, predicted: List[Dict], expected: List[str], functions: List[Dict]) -> tuple[bool, float]:
         """执行评估（简化版本）"""
         # 这里实现简化的执行评估
         # 在实际应用中，需要安全的代码执行环境
         return self._evaluate_ast_matching(predicted, expected)
 
     def export_to_bfcl_format(
-            self,
-            results: Dict[str, Any],
-            output_path: Union[str, Path],
-            include_inference_log: bool = True
+        self,
+        results: Dict[str, Any],
+        output_path: Union[str, Path],
+        include_inference_log: bool = True
     ) -> None:
         """导出评估结果为BFCL官方格式
 

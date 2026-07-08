@@ -6,11 +6,12 @@ GAIA (General AI Assistants) 评估工具
 
 from typing import Dict, Any, List, Optional, Union
 from pathlib import Path
+import json
 from datetime import datetime
-
-from evaluation import GAIAEvaluator
-from evaluation.benchmarks.gaia import GAIAMetrics, GAIADataset
-from tools import Tool, ToolParameter
+from ..base import Tool, ToolParameter
+from evaluation.benchmarks.gaia.dataset import GAIADataset
+from evaluation.benchmarks.gaia.evaluator import GAIAEvaluator
+from evaluation.benchmarks.gaia.metrics import GAIAMetrics
 
 
 class GAIAEvaluationTool(Tool):
@@ -22,7 +23,7 @@ class GAIAEvaluationTool(Tool):
     - Level 2: 中等任务（1-5步推理）
     - Level 3: 困难任务（5+步推理）
     """
-
+    
     def __init__(self, local_data_path: Optional[str] = None):
         """初始化GAIA评估工具
         
@@ -40,7 +41,7 @@ class GAIAEvaluationTool(Tool):
         self.dataset = None
         self.evaluator = None
         self.metrics_calculator = GAIAMetrics()
-
+    
     def get_parameters(self) -> List[ToolParameter]:
         """获取工具参数定义"""
         return [
@@ -72,15 +73,15 @@ class GAIAEvaluationTool(Tool):
                 default=None
             )
         ]
-
+    
     def run(
-            self,
-            agent: Any,
-            level: Optional[int] = None,
-            max_samples: Optional[int] = None,
-            local_data_dir: Optional[str] = None,
-            export_results: bool = True,
-            generate_report: bool = True
+        self,
+        agent: Any,
+        level: Optional[int] = None,
+        max_samples: Optional[int] = None,
+        local_data_dir: Optional[str] = None,
+        export_results: bool = True,
+        generate_report: bool = True
     ) -> Dict[str, Any]:
         """执行GAIA一键评估
 
@@ -150,11 +151,11 @@ class GAIAEvaluationTool(Tool):
             }
 
     def _run_evaluation(
-            self,
-            agent: Any,
-            level: Optional[int],
-            max_samples: Optional[int],
-            local_data_dir: Optional[str]
+        self,
+        agent: Any,
+        level: Optional[int],
+        max_samples: Optional[int],
+        local_data_dir: Optional[str]
     ) -> Dict[str, Any]:
         """运行评估"""
         # 加载数据集
@@ -203,10 +204,10 @@ class GAIAEvaluationTool(Tool):
         self._generate_submission_guide(results, output_dir, output_file)
 
     def _generate_submission_guide(
-            self,
-            results: Dict[str, Any],
-            output_dir: Path,
-            result_file: Path
+        self,
+        results: Dict[str, Any],
+        output_dir: Path,
+        result_file: Path
     ) -> None:
         """生成提交说明文件
 
@@ -322,9 +323,9 @@ GAIA要求的JSONL格式（每行一个JSON对象）：
         print(f"📄 提交说明已生成: {guide_file}")
 
     def generate_report(
-            self,
-            results: Dict[str, Any],
-            output_file: Optional[Union[str, Path]] = None
+        self,
+        results: Dict[str, Any],
+        output_file: Optional[Union[str, Path]] = None
     ) -> str:
         """生成评估报告
 
@@ -450,11 +451,11 @@ GAIA要求的JSONL格式（每行一个JSON对象）：
         try:
             dataset = GAIADataset(level=level, local_data_path=self.local_data_path)
             items = dataset.load()
-
+            
             # 获取统计信息
             stats = dataset.get_statistics()
             level_dist = dataset.get_level_distribution()
-
+            
             return {
                 "level": level,
                 "total_samples": len(items),
@@ -465,7 +466,7 @@ GAIA要求的JSONL格式（每行一个JSON对象）：
             }
         except Exception as e:
             return {"error": str(e)}
-
+    
     def validate_agent(self, agent: Any) -> bool:
         """验证智能体是否具备必要的接口
         
@@ -478,9 +479,11 @@ GAIA要求的JSONL格式（每行一个JSON对象）：
         # 检查agent是否有run方法
         if not hasattr(agent, 'run'):
             return False
-
+        
         # 检查run方法是否可调用
         if not callable(getattr(agent, 'run')):
             return False
-
+        
         return True
+    
+

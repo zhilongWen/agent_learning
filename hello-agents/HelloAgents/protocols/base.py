@@ -34,7 +34,7 @@ class Protocol:
     这个类定义了协议的基本概念，但实际实现不需要继承它。
     各协议根据自己的特点独立实现。
     """
-
+    
     def __init__(self, protocol_type: ProtocolType, version: str = "1.0.0"):
         """初始化协议
         
@@ -44,19 +44,20 @@ class Protocol:
         """
         self._protocol_type = protocol_type
         self._version = version
-
+    
     @property
     def protocol_name(self) -> str:
         """获取协议名称"""
         return self._protocol_type.value
-
+    
     @property
     def version(self) -> str:
         """获取协议版本"""
         return self._version
-
+    
     def __str__(self) -> str:
         return f"{self.__class__.__name__}(protocol={self.protocol_name}, version={self.version})"
-
+    
     def __repr__(self) -> str:
         return self.__str__()
+

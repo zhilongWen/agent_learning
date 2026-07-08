@@ -4,12 +4,13 @@
 可以作为工具添加到任何Agent中，让Agent具备记忆功能。
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from mem import MemoryConfig, MemoryManager
-from tools import Tool, ToolParameter
-
+from ..base import Tool, ToolParameter, tool_action
+from ..errors import ToolErrorCode
+from ..response import ToolResponse
+from mem import MemoryManager, MemoryConfig
 
 class MemoryTool(Tool):
     """记忆工具
@@ -22,14 +23,16 @@ class MemoryTool(Tool):
     """
 
     def __init__(
-            self,
-            user_id: str = "default_user",
-            memory_config: MemoryConfig = None,
-            memory_types: List[str] = None
+        self,
+        user_id: str = "default_user",
+        memory_config: MemoryConfig = None,
+        memory_types: List[str] = None,
+        expandable: bool = False
     ):
         super().__init__(
             name="memory",
-            description="记忆工具 - 可以存储和检索对话历史、知识和经验"
+            description="记忆工具 - 可以存储和检索对话历史、知识和经验",
+            expandable=expandable
         )
 
         # 初始化记忆管理器
@@ -49,23 +52,87 @@ class MemoryTool(Tool):
         self.current_session_id = None
         self.conversation_count = 0
 
-    def run(self, parameters: Dict[str, Any]) -> str:
-        """执行工具 - Tool基类要求的接口
+    def run(self, parameters: Dict[str, Any]) -> ToolResponse:
+        """执行工具（非展开模式）
 
         Args:
             parameters: 工具参数字典，必须包含action参数
 
         Returns:
-            执行结果字符串
+            标准化工具响应
         """
         if not self.validate_parameters(parameters):
-            return "❌ 参数验证失败：缺少必需的参数"
+            return ToolResponse.error(
+                code=ToolErrorCode.INVALID_PARAM,
+                message="❌ 参数验证失败：缺少必需的参数",
+                context={"params_input": parameters}
+            )
 
         action = parameters.get("action")
-        # 移除action参数，传递其余参数给execute方法
-        kwargs = {k: v for k, v in parameters.items() if k != "action"}
 
-        return self.execute(action, **kwargs)
+        # 根据action调用对应的方法，传入提取的参数
+        if action == "add":
+            return self._to_response(self._add_memory(
+                content=parameters.get("content", ""),
+                memory_type=parameters.get("memory_type", "working"),
+                importance=parameters.get("importance", 0.5),
+                file_path=parameters.get("file_path"),
+                modality=parameters.get("modality")
+            ))
+        elif action == "search":
+            return self._to_response(self._search_memory(
+                query=parameters.get("query"),
+                limit=parameters.get("limit", 5),
+                memory_type=parameters.get("memory_type"),
+                min_importance=parameters.get("min_importance", 0.1)
+            ))
+        elif action == "summary":
+            return self._to_response(self._get_summary(limit=parameters.get("limit", 10)))
+        elif action == "stats":
+            return self._to_response(self._get_stats())
+        elif action == "update":
+            return self._to_response(self._update_memory(
+                memory_id=parameters.get("memory_id"),
+                content=parameters.get("content"),
+                importance=parameters.get("importance")
+            ))
+        elif action == "remove":
+            return self._to_response(self._remove_memory(memory_id=parameters.get("memory_id")))
+        elif action == "forget":
+            return self._to_response(self._forget(
+                strategy=parameters.get("strategy", "importance_based"),
+                threshold=parameters.get("threshold", 0.1),
+                max_age_days=parameters.get("max_age_days", 30)
+            ))
+        elif action == "consolidate":
+            return self._to_response(self._consolidate(
+                from_type=parameters.get("from_type", "working"),
+                to_type=parameters.get("to_type", "episodic"),
+                importance_threshold=parameters.get("importance_threshold", 0.7)
+            ))
+        elif action == "clear_all":
+            return self._to_response(self._clear_all())
+        else:
+            return ToolResponse.error(
+                code=ToolErrorCode.INVALID_PARAM,
+                message=f"❌ 不支持的操作: {action}",
+                context={"action": action, "params_input": parameters}
+            )
+
+    def _to_response(self, result: Any) -> ToolResponse:
+        """Convert legacy string helper results into the standard ToolResponse protocol."""
+        if isinstance(result, ToolResponse):
+            return result
+
+        text = str(result)
+        if text.startswith("❌"):
+            return ToolResponse.error(
+                code=ToolErrorCode.EXECUTION_ERROR,
+                message=text
+            )
+        if text.startswith("⚠️"):
+            return ToolResponse.partial(text=text)
+        return ToolResponse.success(text=text)
 
     def get_parameters(self) -> List[ToolParameter]:
         """获取工具参数定义 - Tool基类要求的接口"""
@@ -80,78 +147,44 @@ class MemoryTool(Tool):
                 ),
                 required=True
             ),
-            ToolParameter(name="content", type="string", description="记忆内容（add/update时可用；感知记忆可作描述）",
-                          required=False),
+            ToolParameter(name="content", type="string", description="记忆内容（add/update时可用；感知记忆可作描述）", required=False),
             ToolParameter(name="query", type="string", description="搜索查询（search时可用）", required=False),
-            ToolParameter(name="memory_type", type="string",
-                          description="记忆类型：working, episodic, semantic, perceptual（默认：working）", required=False,
-                          default="working"),
-            ToolParameter(name="importance", type="number", description="重要性分数，0.0-1.0（add/update时可用）",
-                          required=False),
-            ToolParameter(name="limit", type="integer", description="搜索结果数量限制（默认：5）", required=False,
-                          default=5),
-            ToolParameter(name="memory_id", type="string", description="目标记忆ID（update/remove时必需）",
-                          required=False),
-            ToolParameter(name="file_path", type="string", description="感知记忆：本地文件路径（image/audio）",
-                          required=False),
-            ToolParameter(name="modality", type="string",
-                          description="感知记忆模态：text/image/audio（不传则按扩展名推断）", required=False),
-            ToolParameter(name="strategy", type="string",
-                          description="遗忘策略：importance_based/time_based/capacity_based（forget时可用）",
-                          required=False, default="importance_based"),
-            ToolParameter(name="threshold", type="number", description="遗忘阈值（forget时可用，默认0.1）", required=False,
-                          default=0.1),
-            ToolParameter(name="max_age_days", type="integer", description="最大保留天数（forget策略为time_based时可用）",
-                          required=False, default=30),
-            ToolParameter(name="from_type", type="string", description="整合来源类型（consolidate时可用，默认working）",
-                          required=False, default="working"),
-            ToolParameter(name="to_type", type="string", description="整合目标类型（consolidate时可用，默认episodic）",
-                          required=False, default="episodic"),
-            ToolParameter(name="importance_threshold", type="number", description="整合重要性阈值（默认0.7）",
-                          required=False, default=0.7),
+            ToolParameter(name="memory_type", type="string", description="记忆类型：working, episodic, semantic, perceptual（默认：working）", required=False, default="working"),
+            ToolParameter(name="importance", type="number", description="重要性分数，0.0-1.0（add/update时可用）", required=False),
+            ToolParameter(name="limit", type="integer", description="搜索结果数量限制（默认：5）", required=False, default=5),
+            ToolParameter(name="memory_id", type="string", description="目标记忆ID（update/remove时必需）", required=False),
+            ToolParameter(name="file_path", type="string", description="感知记忆：本地文件路径（image/audio）", required=False),
+            ToolParameter(name="modality", type="string", description="感知记忆模态：text/image/audio（不传则按扩展名推断）", required=False),
+            ToolParameter(name="strategy", type="string", description="遗忘策略：importance_based/time_based/capacity_based（forget时可用）", required=False, default="importance_based"),
+            ToolParameter(name="threshold", type="number", description="遗忘阈值（forget时可用，默认0.1）", required=False, default=0.1),
+            ToolParameter(name="max_age_days", type="integer", description="最大保留天数（forget策略为time_based时可用）", required=False, default=30),
+            ToolParameter(name="from_type", type="string", description="整合来源类型（consolidate时可用，默认working）", required=False, default="working"),
+            ToolParameter(name="to_type", type="string", description="整合目标类型（consolidate时可用，默认episodic）", required=False, default="episodic"),
+            ToolParameter(name="importance_threshold", type="number", description="整合重要性阈值（默认0.7）", required=False, default=0.7),
         ]
 
-    def execute(self, action: str, **kwargs) -> str:
-        """执行记忆操作
-
-        支持的操作：
-        - add: 添加记忆
-        - search: 搜索记忆
-        - summary: 获取记忆摘要
-        - stats: 获取统计信息
-        """
-
-        if action == "add":
-            return self._add_memory(**kwargs)
-        elif action == "search":
-            return self._search_memory(**kwargs)
-        elif action == "summary":
-            return self._get_summary(**kwargs)
-        elif action == "stats":
-            return self._get_stats()
-        elif action == "update":
-            return self._update_memory(**kwargs)
-        elif action == "remove":
-            return self._remove_memory(**kwargs)
-        elif action == "forget":
-            return self._forget(**kwargs)
-        elif action == "consolidate":
-            return self._consolidate(**kwargs)
-        elif action == "clear_all":
-            return self._clear_all()
-        else:
-            return f"不支持的操作: {action}。支持的操作: add, search, summary, stats, update, remove, forget, consolidate, clear_all"
-
+    @tool_action("memory_add", "添加新记忆到记忆系统中")
     def _add_memory(
-            self,
-            content: str = "",
-            memory_type: str = "working",
-            importance: float = 0.5,
-            file_path: str = None,
-            modality: str = None,
-            **metadata
+        self,
+        content: str = "",
+        memory_type: str = "working",
+        importance: float = 0.5,
+        file_path: str = None,
+        modality: str = None
     ) -> str:
-        """添加记忆"""
+        """添加记忆
+
+        Args:
+            content: 记忆内容
+            memory_type: 记忆类型：working(工作记忆), episodic(情景记忆), semantic(语义记忆), perceptual(感知记忆)
+            importance: 重要性分数，0.0-1.0
+            file_path: 感知记忆：本地文件路径（image/audio）
+            modality: 感知记忆模态：text/image/audio（不传则按扩展名推断）
+
+        Returns:
+            执行结果
+        """
+        metadata = {}
         try:
             # 确保会话ID存在
             if self.current_session_id is None:
@@ -194,19 +227,28 @@ class MemoryTool(Tool):
         except Exception:
             return "text"
 
+    @tool_action("memory_search", "搜索相关记忆")
     def _search_memory(
-            self,
-            query: str,
-            limit: int = 5,
-            memory_types: List[str] = None,
-            memory_type: str = None,  # 添加单数形式的参数支持
-            min_importance: float = 0.1
+        self,
+        query: str,
+        limit: int = 5,
+        memory_type: str = None,
+        min_importance: float = 0.1
     ) -> str:
-        """搜索记忆"""
+        """搜索记忆
+
+        Args:
+            query: 搜索查询内容
+            limit: 搜索结果数量限制
+            memory_type: 限定记忆类型：working/episodic/semantic/perceptual
+            min_importance: 最低重要性阈值
+
+        Returns:
+            搜索结果
+        """
         try:
-            # 处理单数形式的memory_type参数
-            if memory_type and not memory_types:
-                memory_types = [memory_type]
+            # 处理memory_type参数
+            memory_types = [memory_type] if memory_type else None
 
             results = self.memory_manager.retrieve_memories(
                 query=query,
@@ -240,8 +282,16 @@ class MemoryTool(Tool):
         except Exception as e:
             return f"❌ 搜索记忆失败: {str(e)}"
 
+    @tool_action("memory_summary", "获取记忆系统摘要（包含重要记忆和统计信息）")
     def _get_summary(self, limit: int = 10) -> str:
-        """获取记忆摘要"""
+        """获取记忆摘要
+
+        Args:
+            limit: 显示的重要记忆数量
+
+        Returns:
+            记忆摘要
+        """
         try:
             stats = self.memory_manager.get_memory_stats()
 
@@ -280,21 +330,21 @@ class MemoryTool(Tool):
                 seen_ids = set()
                 seen_contents = set()
                 unique_memories = []
-
+                
                 for memory in important_memories:
                     # 使用ID去重
                     if memory.id in seen_ids:
                         continue
-
+                    
                     # 使用内容去重（防止相同内容的不同记忆）
                     content_key = memory.content.strip().lower()
                     if content_key in seen_contents:
                         continue
-
+                    
                     seen_ids.add(memory.id)
                     seen_contents.add(content_key)
                     unique_memories.append(memory)
-
+                
                 # 按重要性排序
                 unique_memories.sort(key=lambda x: x.importance, reverse=True)
                 summary_parts.append(f"\n⭐ 重要记忆 (前{min(limit, len(unique_memories))}条):")
@@ -308,8 +358,13 @@ class MemoryTool(Tool):
         except Exception as e:
             return f"❌ 获取摘要失败: {str(e)}"
 
+    @tool_action("memory_stats", "获取记忆系统的统计信息")
     def _get_stats(self) -> str:
-        """获取统计信息"""
+        """获取统计信息
+
+        Returns:
+            统计信息
+        """
         try:
             stats = self.memory_manager.get_memory_stats()
 
@@ -361,9 +416,20 @@ class MemoryTool(Tool):
                 conversation_id=self.conversation_count
             )
 
-    def _update_memory(self, memory_id: str, content: str = None, importance: float = None, **metadata) -> str:
-        """更新记忆"""
+    @tool_action("memory_update", "更新已存在的记忆")
+    def _update_memory(self, memory_id: str, content: str = None, importance: float = None) -> str:
+        """更新记忆
+
+        Args:
+            memory_id: 要更新的记忆ID
+            content: 新的记忆内容
+            importance: 新的重要性分数
+
+        Returns:
+            执行结果
+        """
         try:
+            metadata = {}
             success = self.memory_manager.update_memory(
                 memory_id=memory_id,
                 content=content,
@@ -374,16 +440,34 @@ class MemoryTool(Tool):
         except Exception as e:
             return f"❌ 更新记忆失败: {str(e)}"
 
+    @tool_action("memory_remove", "删除指定的记忆")
     def _remove_memory(self, memory_id: str) -> str:
-        """删除记忆"""
+        """删除记忆
+
+        Args:
+            memory_id: 要删除的记忆ID
+
+        Returns:
+            执行结果
+        """
         try:
             success = self.memory_manager.remove_memory(memory_id)
             return "✅ 记忆已删除" if success else "⚠️ 未找到要删除的记忆"
         except Exception as e:
             return f"❌ 删除记忆失败: {str(e)}"
 
+    @tool_action("memory_forget", "按照策略批量遗忘记忆")
     def _forget(self, strategy: str = "importance_based", threshold: float = 0.1, max_age_days: int = 30) -> str:
-        """遗忘记忆（支持多种策略）"""
+        """遗忘记忆（支持多种策略）
+
+        Args:
+            strategy: 遗忘策略：importance_based(基于重要性)/time_based(基于时间)/capacity_based(基于容量)
+            threshold: 遗忘阈值（importance_based时使用）
+            max_age_days: 最大保留天数（time_based时使用）
+
+        Returns:
+            执行结果
+        """
         try:
             count = self.memory_manager.forget_memories(
                 strategy=strategy,
@@ -394,9 +478,18 @@ class MemoryTool(Tool):
         except Exception as e:
             return f"❌ 遗忘记忆失败: {str(e)}"
 
-    def _consolidate(self, from_type: str = "working", to_type: str = "episodic",
-                     importance_threshold: float = 0.7) -> str:
-        """整合记忆（将重要的短期记忆提升为长期记忆）"""
+    @tool_action("memory_consolidate", "将重要的短期记忆整合为长期记忆")
+    def _consolidate(self, from_type: str = "working", to_type: str = "episodic", importance_threshold: float = 0.7) -> str:
+        """整合记忆（将重要的短期记忆提升为长期记忆）
+
+        Args:
+            from_type: 来源记忆类型
+            to_type: 目标记忆类型
+            importance_threshold: 整合的重要性阈值
+
+        Returns:
+            执行结果
+        """
         try:
             count = self.memory_manager.consolidate_memories(
                 from_type=from_type,
@@ -407,8 +500,13 @@ class MemoryTool(Tool):
         except Exception as e:
             return f"❌ 整合记忆失败: {str(e)}"
 
+    @tool_action("memory_clear", "清空所有记忆（危险操作，请谨慎使用）")
     def _clear_all(self) -> str:
-        """清空所有记忆"""
+        """清空所有记忆
+
+        Returns:
+            执行结果
+        """
         try:
             self.memory_manager.clear_all_memories()
             return "🧽 已清空所有记忆"

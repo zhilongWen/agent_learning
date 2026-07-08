@@ -1,6 +1,10 @@
 import os
+import sys
+from pathlib import Path
 
 from dotenv import load_dotenv
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agents import SimpleAgent, ReActAgent
 from core import HelloAgentsLLM

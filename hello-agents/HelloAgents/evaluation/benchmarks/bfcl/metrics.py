@@ -4,7 +4,8 @@ BFCL 评估指标模块
 计算 BFCL 相关的评估指标
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
+import json
 import ast
 import numpy as np
 
@@ -91,8 +92,8 @@ class BFCLMetrics:
 
     @staticmethod
     def calculate_parameter_accuracy(
-            predicted_params: Dict[str, Any],
-            expected_params: Dict[str, Any]
+        predicted_params: Dict[str, Any],
+        expected_params: Dict[str, Any]
     ) -> float:
         """计算参数准确率
 
@@ -292,8 +293,8 @@ class BFCLMetrics:
 
     @staticmethod
     def calculate_precision_recall(
-            predicted: List[Dict[str, Any]],
-            expected: List[Dict[str, Any]]
+        predicted: List[Dict[str, Any]],
+        expected: List[Dict[str, Any]]
     ) -> tuple[float, float]:
         """计算精确率和召回率
 
@@ -320,3 +321,4 @@ class BFCLMetrics:
         recall = true_positives / len(exp_names) if exp_names else 0.0
 
         return precision, recall
+

@@ -8,13 +8,9 @@
 """
 
 from typing import Dict, Any, List, Optional
-
-from protocols import ANPDiscovery, ANPNetwork, ServiceInfo
-from protocols.a2a.implementation import A2A_AVAILABLE
-from protocols.mcp.client import MCPClient
+from ..base import Tool, ToolParameter
 import os
 
-from tools.base import Tool, ToolParameter
 
 # MCP服务器环境变量映射表
 # 用于自动检测常见MCP服务器需要的环境变量
@@ -40,7 +36,7 @@ class MCPTool(Tool):
     - 获取提示词模板
 
     使用示例:
-        >>> from hello_agents.tools.builtin import MCPTool
+        >>> from tools.builtin import MCPTool
         >>>
         >>> # 方式1: 使用内置演示服务器
         >>> tool = MCPTool()  # 自动创建内置服务器
@@ -57,7 +53,7 @@ class MCPTool(Tool):
 
     注意：使用 fastmcp 库，已包含在依赖中
     """
-
+    
     def __init__(self,
                  name: str = "mcp",
                  description: Optional[str] = None,
@@ -248,7 +244,7 @@ class MCPTool(Tool):
     def _discover_tools(self):
         """发现MCP服务器提供的所有工具"""
         try:
-            # from hello_agents.protocols.mcp.client import MCPClient
+            from protocols.mcp.client import MCPClient
             import asyncio
 
             async def discover():
@@ -357,6 +353,7 @@ class MCPTool(Tool):
         Returns:
             操作结果
         """
+        from protocols.mcp.client import MCPClient
 
         # 智能推断action：如果没有action但有tool_name，自动设置为call_tool
         action = parameters.get("action", "").lower()
@@ -366,10 +363,11 @@ class MCPTool(Tool):
 
         if not action:
             return "错误：必须指定 action 参数或 tool_name 参数"
-
+        
         try:
             # 使用增强的异步客户端
             import asyncio
+            from protocols.mcp.client import MCPClient
 
             async def run_mcp_operation():
                 # 根据配置选择客户端创建方式
@@ -463,10 +461,10 @@ class MCPTool(Tool):
                     return asyncio.run(run_mcp_operation())
             except Exception as e:
                 return f"异步操作失败: {str(e)}"
-
+                    
         except Exception as e:
             return f"MCP 操作失败: {str(e)}"
-
+    
     def get_parameters(self) -> List[ToolParameter]:
         """获取工具参数定义"""
         return [
@@ -520,7 +518,7 @@ class A2ATool(Tool):
     - 发送自定义消息
 
     使用示例:
-        >>> from hello_agents.tools.builtin import A2ATool
+        >>> from tools.builtin import A2ATool
         >>> # 连接到 A2A Agent（使用默认名称）
         >>> tool = A2ATool(agent_url="http://localhost:5000")
         >>> # 连接到 A2A Agent（自定义名称和描述）
@@ -538,7 +536,7 @@ class A2ATool(Tool):
     详见文档: docs/chapter10/A2A_GUIDE.md
     官方仓库: https://github.com/a2aproject/a2a-python
     """
-
+    
     def __init__(self, agent_url: str, name: str = "a2a", description: str = None):
         """
         初始化 A2A 工具
@@ -556,7 +554,7 @@ class A2ATool(Tool):
             description=description
         )
         self.agent_url = agent_url
-
+        
     def run(self, parameters: Dict[str, Any]) -> str:
         """
         执行 A2A 操作
@@ -570,45 +568,46 @@ class A2ATool(Tool):
             操作结果
         """
         try:
+            from protocols.a2a.implementation import A2AClient, A2A_AVAILABLE
             if not A2A_AVAILABLE:
                 return ("错误：需要安装 a2a-sdk 库\n"
-                        "安装命令: pip install a2a-sdk\n"
-                        "详见文档: docs/chapter10/A2A_GUIDE.md\n"
-                        "官方仓库: https://github.com/a2aproject/a2a-python")
+                       "安装命令: pip install a2a-sdk\n"
+                       "详见文档: docs/chapter10/A2A_GUIDE.md\n"
+                       "官方仓库: https://github.com/a2aproject/a2a-python")
         except ImportError:
             return ("错误：无法导入 A2A 模块\n"
-                    "安装命令: pip install a2a-sdk\n"
-                    "详见文档: docs/chapter10/A2A_GUIDE.md\n"
-                    "官方仓库: https://github.com/a2aproject/a2a-python")
+                   "安装命令: pip install a2a-sdk\n"
+                   "详见文档: docs/chapter10/A2A_GUIDE.md\n"
+                   "官方仓库: https://github.com/a2aproject/a2a-python")
 
         action = parameters.get("action", "").lower()
-
+        
         if not action:
             return "错误：必须指定 action 参数"
-
+        
         try:
             client = A2AClient(self.agent_url)
-
+            
             if action == "ask":
                 question = parameters.get("question")
                 if not question:
                     return "错误：必须指定 question 参数"
                 response = client.ask(question)
                 return f"Agent 回答:\n{response}"
-
+                
             elif action == "get_info":
                 info = client.get_info()
                 result = "Agent 信息:\n"
                 for key, value in info.items():
                     result += f"- {key}: {value}\n"
                 return result
-
+                
             else:
                 return f"错误：不支持的操作 '{action}'"
-
+                
         except Exception as e:
             return f"A2A 操作失败: {str(e)}"
-
+    
     def get_parameters(self) -> List[ToolParameter]:
         """获取工具参数定义"""
         return [
@@ -640,7 +639,7 @@ class ANPTool(Tool):
     - 网络统计
 
     使用示例:
-        >>> from hello_agents.tools.builtin import ANPTool
+        >>> from tools.builtin import ANPTool
         >>> tool = ANPTool()
         >>> # 注册服务
         >>> result = tool.run({
@@ -664,7 +663,7 @@ class ANPTool(Tool):
     注意：这是概念性实现，不需要额外依赖
     详见文档: docs/chapter10/ANP_CONCEPTS.md
     """
-
+    
     def __init__(self, name: str = "anp", description: str = None, discovery=None, network=None):
         """初始化 ANP 工具
 
@@ -681,9 +680,10 @@ class ANPTool(Tool):
             name=name,
             description=description
         )
+        from protocols.anp.implementation import ANPDiscovery, ANPNetwork
         self._discovery = discovery if discovery is not None else ANPDiscovery()
         self._network = network if network is not None else ANPNetwork()
-
+        
     def run(self, parameters: Dict[str, Any]) -> str:
         """
         执行 ANP 操作
@@ -698,22 +698,23 @@ class ANPTool(Tool):
         Returns:
             操作结果
         """
+        from protocols.anp.implementation import ServiceInfo
 
         action = parameters.get("action", "").lower()
-
+        
         if not action:
             return "错误：必须指定 action 参数"
-
+        
         try:
             if action == "register_service":
                 service_id = parameters.get("service_id")
                 service_type = parameters.get("service_type")
                 endpoint = parameters.get("endpoint")
                 metadata = parameters.get("metadata", {})
-
+                
                 if not all([service_id, service_type, endpoint]):
                     return "错误：必须指定 service_id, service_type 和 endpoint 参数"
-
+                
                 service = ServiceInfo(service_id, service_type, endpoint, metadata)
                 self._discovery.register_service(service)
                 return f"✅ 已注册服务 '{service_id}'"
@@ -750,45 +751,45 @@ class ANPTool(Tool):
                         result += f"  元数据: {service.metadata}\n"
                     result += "\n"
                 return result
-
+                
             elif action == "add_node":
                 node_id = parameters.get("node_id")
                 endpoint = parameters.get("endpoint")
                 metadata = parameters.get("metadata", {})
-
+                
                 if not all([node_id, endpoint]):
                     return "错误：必须指定 node_id 和 endpoint 参数"
-
+                
                 self._network.add_node(node_id, endpoint, metadata)
                 return f"✅ 已添加节点 '{node_id}'"
-
+                
             elif action == "route_message":
                 from_node = parameters.get("from_node")
                 to_node = parameters.get("to_node")
                 message = parameters.get("message", {})
-
+                
                 if not all([from_node, to_node]):
                     return "错误：必须指定 from_node 和 to_node 参数"
-
+                
                 path = self._network.route_message(from_node, to_node, message)
                 if path:
                     return f"消息路由路径: {' -> '.join(path)}"
                 else:
                     return "无法找到路由路径"
-
+                
             elif action == "get_stats":
                 stats = self._network.get_network_stats()
                 result = "网络统计:\n"
                 for key, value in stats.items():
                     result += f"- {key}: {value}\n"
                 return result
-
+                
             else:
                 return f"错误：不支持的操作 '{action}'"
-
+                
         except Exception as e:
             return f"ANP 操作失败: {str(e)}"
-
+    
     def get_parameters(self) -> List[ToolParameter]:
         """获取工具参数定义"""
         return [
@@ -847,3 +848,4 @@ class ANPTool(Tool):
                 required=False
             )
         ]
+
